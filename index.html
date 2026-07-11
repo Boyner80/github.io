@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seraphin — Luxury Spa & Wellness</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@200;300;400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream: #f5f0e8;
+      --sand: #e8dfd0;
+      --stone: #c9bba8;
+      --gold: #b89a6a;
+      --deep: #2c2417;
+      --sage: #7a8c6e;
+      --text: #3a2e22;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Jost', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 28px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.5s, padding 0.5s, backdrop-filter 0.5s;
+    }
+
+    nav.scrolled {
+      background: rgba(245, 240, 232, 0.88);
+      backdrop-filter: blur(16px);
+      padding: 16px 60px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+    }
+
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      color: var(--cream);
+      transition: color 0.5s;
+      text-decoration: none;
+    }
+
+    nav.scrolled .nav-logo { color: var(--deep); }
+
+    .nav-links {
+      display: flex;
+      gap: 40px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.75rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.85);
+      text-decoration: none;
+      transition: color 0.3s, opacity 0.3s;
+    }
+
+    nav.scrolled .nav-links a { color: var(--text); }
+    .nav-links a:hover { color: var(--gold); }
+
+    .nav-book {
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--cream);
+      border: 1px solid rgba(245,240,232,0.5);
+      padding: 10px 24px;
+      text-decoration: none;
+      transition: all 0.4s;
+      border-radius: 1px;
+    }
+
+    nav.scrolled .nav-book {
+      color: var(--deep);
+      border-color: var(--deep);
+    }
+
+    .nav-book:hover {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: var(--cream);
+    }
+
+    /* ─── HERO ─── */
+    #hero {
+      position: relative;
+      height: 100vh;
+      min-height: 700px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: -10%;
+      background:
+        radial-gradient(ellipse at 70% 40%, rgba(120,100,70,0.45) 0%, transparent 60%),
+        radial-gradient(ellipse at 20% 80%, rgba(90,110,80,0.35) 0%, transparent 55%),
+        linear-gradient(160deg, #1a1409 0%, #2c2417 45%, #3d3220 100%);
+      will-change: transform;
+    }
+
+    .hero-grain {
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      text-align: center;
+      color: var(--cream);
+      max-width: 900px;
+      padding: 0 40px;
+    }
+
+    .hero-eyebrow {
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 28px;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 1s 0.3s forwards;
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(3.5rem, 8vw, 7.5rem);
+      font-weight: 300;
+      line-height: 1.0;
+      letter-spacing: 0.02em;
+      margin-bottom: 28px;
+      opacity: 0;
+      transform: translateY(30px);
+      animation: fadeUp 1.2s 0.5s forwards;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--stone);
+    }
+
+    .hero-sub {
+      font-size: 0.9rem;
+      font-weight: 200;
+      letter-spacing: 0.12em;
+      color: rgba(245,240,232,0.65);
+      max-width: 480px;
+      margin: 0 auto 48px;
+      line-height: 1.8;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 1s 0.8s forwards;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      gap: 20px;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 1s 1s forwards;
+    }
+
+    .btn-primary {
+      font-size: 0.72rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      background: var(--gold);
+      color: var(--cream);
+      padding: 16px 38px;
+      text-decoration: none;
+      transition: all 0.4s;
+      border-radius: 1px;
+    }
+
+    .btn-primary:hover { background: #a08558; transform: translateY(-2px); }
+
+    .btn-ghost {
+      font-size: 0.72rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.8);
+      border-bottom: 1px solid rgba(245,240,232,0.35);
+      padding: 16px 4px;
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+
+    .btn-ghost:hover { color: var(--cream); border-color: var(--cream); }
+
+    .hero-scroll-hint {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      opacity: 0;
+      animation: fadeUp 1s 1.4s forwards;
+    }
+
+    .scroll-hint-text {
+      font-size: 0.6rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.4);
+    }
+
+    .scroll-line {
+      width: 1px;
+      height: 50px;
+      background: linear-gradient(to bottom, rgba(245,240,232,0.4), transparent);
+      animation: scrollPulse 2s 2s infinite;
+    }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scrollPulse {
+      0%, 100% { transform: scaleY(1); opacity: 0.4; }
+      50% { transform: scaleY(0.6); opacity: 0.8; }
+    }
+
+    /* ─── SECTION BASE ─── */
+    section { position: relative; }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(50px);
+      transition: opacity 0.9s cubic-bezier(0.16,1,0.3,1), transform 0.9s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-left {
+      opacity: 0;
+      transform: translateX(-60px);
+      transition: opacity 0.9s cubic-bezier(0.16,1,0.3,1), transform 0.9s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .reveal-left.visible { opacity: 1; transform: translateX(0); }
+
+    .reveal-right {
+      opacity: 0;
+      transform: translateX(60px);
+      transition: opacity 0.9s cubic-bezier(0.16,1,0.3,1), transform 0.9s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .reveal-right.visible { opacity: 1; transform: translateX(0); }
+
+    .delay-1 { transition-delay: 0.1s; }
+    .delay-2 { transition-delay: 0.2s; }
+    .delay-3 { transition-delay: 0.35s; }
+    .delay-4 { transition-delay: 0.5s; }
+    .delay-5 { transition-delay: 0.65s; }
+
+    /* ─── MARQUEE STRIP ─── */
+    .marquee-strip {
+      background: var(--gold);
+      padding: 14px 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .marquee-track {
+      display: inline-flex;
+      gap: 60px;
+      animation: marquee 20s linear infinite;
+    }
+
+    .marquee-track span {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--cream);
+    }
+
+    .marquee-track .dot {
+      color: rgba(245,240,232,0.5);
+      letter-spacing: 0;
+    }
+
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ─── PHILOSOPHY (PINNED TEXT) ─── */
+    #philosophy {
+      background: var(--deep);
+      padding: 160px 60px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .philosophy-tag {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 48px;
+    }
+
+    .philosophy-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 4.5vw, 3.8rem);
+      font-weight: 300;
+      line-height: 1.3;
+      color: var(--cream);
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .philosophy-text .word {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+
+    .philosophy-text .word.lit {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .philosophy-text em { color: var(--gold); font-style: italic; }
+
+    .philosophy-line {
+      width: 1px;
+      height: 80px;
+      background: var(--gold);
+      margin: 60px auto 0;
+      transform: scaleY(0);
+      transform-origin: top;
+      transition: transform 0.8s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .philosophy-line.visible { transform: scaleY(1); }
+
+    /* ─── SERVICES ─── */
+    #services {
+      padding: 140px 60px;
+      background: var(--cream);
+    }
+
+    .section-header {
+      max-width: 1200px;
+      margin: 0 auto 90px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    .section-tag {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2.2rem, 4vw, 3.5rem);
+      font-weight: 300;
+      line-height: 1.15;
+      color: var(--deep);
+    }
+
+    .section-desc {
+      font-size: 0.88rem;
+      font-weight: 200;
+      line-height: 1.9;
+      color: #7a6e60;
+      max-width: 380px;
+    }
+
+    .services-grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+    }
+
+    .service-card {
+      position: relative;
+      background: var(--sand);
+      padding: 56px 44px;
+      overflow: hidden;
+      cursor: default;
+      transition: background 0.5s;
+    }
+
+    .service-card::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 100%;
+      height: 3px;
+      background: var(--gold);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.5s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .service-card:hover { background: #e0d5c2; }
+    .service-card:hover::before { transform: scaleX(1); }
+
+    .service-num {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      color: var(--gold);
+      margin-bottom: 28px;
+      font-family: 'Jost', sans-serif;
+    }
+
+    .service-icon {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 28px;
+      opacity: 0.7;
+    }
+
+    .service-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 400;
+      color: var(--deep);
+      margin-bottom: 16px;
+      line-height: 1.2;
+    }
+
+    .service-desc {
+      font-size: 0.82rem;
+      font-weight: 200;
+      line-height: 1.85;
+      color: #7a6e60;
+      margin-bottom: 28px;
+    }
+
+    .service-price {
+      font-size: 0.72rem;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      color: var(--gold);
+    }
+
+    /* ─── PARALLAX VISUAL ─── */
+    #visual {
+      height: 70vh;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .visual-bg {
+      position: absolute;
+      inset: -20%;
+      background:
+        radial-gradient(ellipse at 30% 60%, rgba(90,110,80,0.5) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 20%, rgba(120,95,60,0.4) 0%, transparent 50%),
+        linear-gradient(135deg, #1a160d 0%, #2d2518 50%, #1e1c14 100%);
+      will-change: transform;
+    }
+
+    .visual-content {
+      position: relative;
+      text-align: center;
+      color: var(--cream);
+      padding: 0 40px;
+    }
+
+    .visual-quote {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 300;
+      font-style: italic;
+      line-height: 1.3;
+      max-width: 700px;
+      margin: 0 auto 24px;
+    }
+
+    .visual-attr {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    /* ─── EXPERIENCE (NUMBERS) ─── */
+    #experience {
+      background: var(--sand);
+      padding: 120px 60px;
+    }
+
+    .experience-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 100px;
+      align-items: center;
+    }
+
+    .exp-text .section-tag { margin-bottom: 16px; }
+
+    .exp-body {
+      font-size: 0.88rem;
+      font-weight: 200;
+      line-height: 1.95;
+      color: #7a6e60;
+      margin-top: 24px;
+      margin-bottom: 40px;
+    }
+
+    .exp-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+    }
+
+    .stat-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 3.5rem;
+      font-weight: 300;
+      color: var(--deep);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-num span { color: var(--gold); }
+
+    .stat-label {
+      font-size: 0.72rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #9a8e80;
+    }
+
+    .exp-visual {
+      position: relative;
+      height: 500px;
+    }
+
+    .exp-card {
+      position: absolute;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .exp-card-main {
+      top: 0; left: 0;
+      width: 78%;
+      height: 75%;
+      background: linear-gradient(135deg, #2c2417 0%, #4a3c28 100%);
+    }
+
+    .exp-card-accent {
+      bottom: 0; right: 0;
+      width: 55%;
+      height: 52%;
+      background: linear-gradient(135deg, #7a8c6e 0%, #5a6e52 100%);
+    }
+
+    .exp-card-inner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: var(--cream);
+    }
+
+    .exp-card-main .exp-card-inner {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.2rem;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .exp-card-accent .exp-card-inner {
+      font-size: 0.65rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+    }
+
+    .card-gold-bar {
+      width: 30px;
+      height: 2px;
+      background: var(--gold);
+      margin: 12px auto;
+    }
+
+    /* ─── RITUALS / TREATMENTS ─── */
+    #rituals {
+      padding: 140px 60px;
+      background: var(--cream);
+    }
+
+    .rituals-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .rituals-list {
+      margin-top: 80px;
+    }
+
+    .ritual-item {
+      display: grid;
+      grid-template-columns: 80px 1fr auto;
+      gap: 40px;
+      align-items: center;
+      padding: 40px 0;
+      border-bottom: 1px solid var(--stone);
+      position: relative;
+      cursor: default;
+      transition: padding 0.4s;
+    }
+
+    .ritual-item::before {
+      content: '';
+      position: absolute;
+      left: 0; bottom: -1px;
+      width: 0;
+      height: 1px;
+      background: var(--gold);
+      transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .ritual-item:hover::before { width: 100%; }
+    .ritual-item:hover { padding-left: 12px; }
+
+    .ritual-num {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.25em;
+      color: var(--gold);
+    }
+
+    .ritual-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      font-weight: 400;
+      color: var(--deep);
+      margin-bottom: 6px;
+    }
+
+    .ritual-detail {
+      font-size: 0.8rem;
+      font-weight: 200;
+      color: #9a8e80;
+      letter-spacing: 0.08em;
+    }
+
+    .ritual-duration {
+      font-size: 0.72rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      color: var(--stone);
+      text-align: right;
+    }
+
+    /* ─── TESTIMONIALS ─── */
+    #testimonials {
+      background: var(--deep);
+      padding: 160px 60px;
+      text-align: center;
+    }
+
+    .testimonials-inner {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .testi-carousel {
+      position: relative;
+      min-height: 280px;
+      overflow: hidden;
+    }
+
+    .testi-slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s, transform 0.7s;
+      pointer-events: none;
+    }
+
+    .testi-slide.active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .testi-stars {
+      font-size: 0.75rem;
+      color: var(--gold);
+      letter-spacing: 6px;
+      margin-bottom: 32px;
+    }
+
+    .testi-quote {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1.4rem, 3vw, 2.2rem);
+      font-weight: 300;
+      font-style: italic;
+      color: var(--cream);
+      line-height: 1.55;
+      margin-bottom: 32px;
+    }
+
+    .testi-name {
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .testi-dots {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 50px;
+    }
+
+    .testi-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(245,240,232,0.2);
+      cursor: pointer;
+      transition: background 0.3s, transform 0.3s;
+      border: none;
+    }
+
+    .testi-dot.active { background: var(--gold); transform: scale(1.3); }
+
+    /* ─── BOOKING ─── */
+    #booking {
+      padding: 140px 60px;
+      background: var(--sand);
+    }
+
+    .booking-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 100px;
+      align-items: start;
+    }
+
+    .booking-form {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--stone);
+      padding: 12px 0;
+      font-family: 'Jost', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 200;
+      color: var(--deep);
+      outline: none;
+      transition: border-color 0.3s;
+      -webkit-appearance: none;
+    }
+
+    .form-group select { cursor: pointer; background: transparent; }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: var(--gold); }
+
+    .form-group textarea { resize: none; height: 100px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+    .booking-info .section-tag { margin-bottom: 16px; }
+    .booking-info .section-title { margin-bottom: 28px; }
+
+    .booking-info-body {
+      font-size: 0.85rem;
+      font-weight: 200;
+      line-height: 1.95;
+      color: #7a6e60;
+      margin-bottom: 48px;
+    }
+
+    .contact-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .contact-list li {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .contact-list .ci {
+      width: 16px;
+      height: 16px;
+      margin-top: 2px;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .contact-list span {
+      font-size: 0.85rem;
+      font-weight: 200;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      background: var(--deep);
+      padding: 80px 60px 48px;
+    }
+
+    .footer-top {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 60px;
+      padding-bottom: 60px;
+      border-bottom: 1px solid rgba(245,240,232,0.08);
+    }
+
+    .footer-brand {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.8rem;
+      font-weight: 300;
+      color: var(--cream);
+      letter-spacing: 0.1em;
+      margin-bottom: 20px;
+    }
+
+    .footer-tagline {
+      font-size: 0.8rem;
+      font-weight: 200;
+      color: rgba(245,240,232,0.4);
+      line-height: 1.8;
+      max-width: 280px;
+    }
+
+    .footer-col h4 {
+      font-size: 0.6rem;
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 24px;
+    }
+
+    .footer-col ul { list-style: none; }
+    .footer-col ul li { margin-bottom: 12px; }
+    .footer-col ul a {
+      font-size: 0.82rem;
+      font-weight: 200;
+      color: rgba(245,240,232,0.5);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .footer-col ul a:hover { color: var(--cream); }
+
+    .footer-bottom {
+      max-width: 1200px;
+      margin: 40px auto 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-copy {
+      font-size: 0.72rem;
+      font-weight: 200;
+      color: rgba(245,240,232,0.25);
+      letter-spacing: 0.1em;
+    }
+
+    .footer-socials {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-socials a {
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(245,240,232,0.35);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .footer-socials a:hover { color: var(--gold); }
+
+    /* ─── CURSOR ─── */
+    .cursor {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      background: var(--gold);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.15s, width 0.3s, height 0.3s, opacity 0.3s;
+    }
+
+    .cursor-ring {
+      position: fixed;
+      width: 36px;
+      height: 36px;
+      border: 1px solid rgba(184,154,106,0.5);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate(-50%, -50%);
+      transition: all 0.12s ease;
+    }
+
+    body:hover .cursor { opacity: 1; }
+
+    /* ─── SCROLL PROGRESS ─── */
+    .scroll-progress {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      background: var(--gold);
+      z-index: 999;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 900px) {
+      nav { padding: 20px 24px; }
+      nav.scrolled { padding: 14px 24px; }
+      .nav-links { display: none; }
+
+      #services { padding: 80px 24px; }
+      .services-grid { grid-template-columns: 1fr; gap: 2px; }
+
+      #experience { padding: 80px 24px; }
+      .experience-inner { grid-template-columns: 1fr; gap: 60px; }
+      .exp-visual { display: none; }
+
+      #rituals { padding: 80px 24px; }
+      .ritual-item { grid-template-columns: 60px 1fr; }
+      .ritual-duration { display: none; }
+
+      #booking { padding: 80px 24px; }
+      .booking-inner { grid-template-columns: 1fr; gap: 60px; }
+      .booking-info { order: -1; }
+
+      #philosophy { padding: 100px 24px; }
+
+      footer { padding: 60px 24px 40px; }
+      .footer-top { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .hero-cta { flex-direction: column; align-items: center; }
+      .section-header { flex-direction: column; }
+      .form-row { grid-template-columns: 1fr; }
+      .footer-top { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursor-ring"></div>
+
+<!-- Scroll progress bar -->
+<div class="scroll-progress" id="scroll-progress"></div>
+
+<!-- ─── NAV ─── -->
+<nav id="main-nav">
+  <a href="#" class="nav-logo">Seraphin</a>
+  <ul class="nav-links">
+    <li><a href="#services">Services</a></li>
+    <li><a href="#experience">Our Story</a></li>
+    <li><a href="#rituals">Rituals</a></li>
+    <li><a href="#testimonials">Testimonials</a></li>
+  </ul>
+  <a href="#booking" class="nav-book">Book Now</a>
+</nav>
+
+<!-- ─── HERO ─── -->
+<section id="hero">
+  <div class="hero-bg" id="hero-bg"></div>
+  <div class="hero-grain"></div>
+  <div class="hero-content">
+    <p class="hero-eyebrow">Est. 2019 · Yerevan, Armenia</p>
+    <h1 class="hero-title">The Art of<br /><em>Pure Rest</em></h1>
+    <p class="hero-sub">A sanctuary where ancient healing traditions meet modern luxury. Your transformation begins with stillness.</p>
+    <div class="hero-cta">
+      <a href="#booking" class="btn-primary">Reserve Your Journey</a>
+      <a href="#services" class="btn-ghost">Explore Services</a>
+    </div>
+  </div>
+  <div class="hero-scroll-hint">
+    <span class="scroll-hint-text">Scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- ─── MARQUEE ─── -->
+<div class="marquee-strip">
+  <div class="marquee-track" id="marquee-track">
+    <span>Hot Stone Massage</span><span class="dot">·</span>
+    <span>Aromatherapy</span><span class="dot">·</span>
+    <span>Deep Tissue</span><span class="dot">·</span>
+    <span>Facial Rituals</span><span class="dot">·</span>
+    <span>Body Wraps</span><span class="dot">·</span>
+    <span>Couples Retreat</span><span class="dot">·</span>
+    <span>Hydrotherapy</span><span class="dot">·</span>
+    <span>Meditation</span><span class="dot">·</span>
+    <!-- duplicate for seamless loop -->
+    <span>Hot Stone Massage</span><span class="dot">·</span>
+    <span>Aromatherapy</span><span class="dot">·</span>
+    <span>Deep Tissue</span><span class="dot">·</span>
+    <span>Facial Rituals</span><span class="dot">·</span>
+    <span>Body Wraps</span><span class="dot">·</span>
+    <span>Couples Retreat</span><span class="dot">·</span>
+    <span>Hydrotherapy</span><span class="dot">·</span>
+    <span>Meditation</span><span class="dot">·</span>
+  </div>
+</div>
+
+<!-- ─── PHILOSOPHY ─── -->
+<section id="philosophy">
+  <div class="reveal">
+    <p class="philosophy-tag">Our Philosophy</p>
+  </div>
+  <p class="philosophy-text" id="philosophy-text">
+    We believe that <em>true wellness</em> is not a luxury — it is a return to yourself. Each ritual at Seraphin is a <em>conversation</em> between your body and the ancient wisdom of touch, warmth, and silence.
+  </p>
+  <div class="philosophy-line" id="philo-line"></div>
+</section>
+
+<!-- ─── SERVICES ─── -->
+<section id="services">
+  <div class="section-header">
+    <div class="reveal">
+      <p class="section-tag">What We Offer</p>
+      <h2 class="section-title">Curated<br />Experiences</h2>
+    </div>
+    <p class="section-desc reveal delay-2">Each service is thoughtfully crafted to restore balance, renew energy, and awaken your senses to the beauty of stillness.</p>
+  </div>
+
+  <div class="services-grid">
+    <div class="service-card reveal delay-1">
+      <p class="service-num">01</p>
+      <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" color="#b89a6a">
+        <circle cx="24" cy="24" r="18"/>
+        <path d="M24 6v4M24 38v4M6 24h4M38 24h4"/>
+        <circle cx="24" cy="24" r="8"/>
+      </svg>
+      <h3 class="service-name">Signature Massage</h3>
+      <p class="service-desc">A full-body journey combining Swedish, deep tissue, and reflexology techniques to dissolve tension and restore flow.</p>
+      <p class="service-price">From AMD 25,000 · 90 min</p>
+    </div>
+
+    <div class="service-card reveal delay-2">
+      <p class="service-num">02</p>
+      <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" color="#b89a6a">
+        <path d="M24 4C24 4 8 16 8 28a16 16 0 0032 0C40 16 24 4 24 4z"/>
+        <path d="M24 20v12M18 26h12"/>
+      </svg>
+      <h3 class="service-name">Hot Stone Ritual</h3>
+      <p class="service-desc">Heated basalt stones glide along meridians, melting stress from muscles and soothing the nervous system into deep calm.</p>
+      <p class="service-price">From AMD 32,000 · 75 min</p>
+    </div>
+
+    <div class="service-card reveal delay-3">
+      <p class="service-num">03</p>
+      <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" color="#b89a6a">
+        <path d="M10 36c4-8 8-16 14-16s10 8 14 16"/>
+        <path d="M16 28c0-8 4-20 8-20s8 12 8 20"/>
+        <line x1="24" y1="38" x2="24" y2="44"/>
+      </svg>
+      <h3 class="service-name">Aromatherapy</h3>
+      <p class="service-desc">Pure essential oils of lavender, neroli, and rose are woven into a sensory ritual that rebalances mind, body, and spirit.</p>
+      <p class="service-price">From AMD 22,000 · 60 min</p>
+    </div>
+
+    <div class="service-card reveal delay-1">
+      <p class="service-num">04</p>
+      <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" color="#b89a6a">
+        <ellipse cx="24" cy="20" rx="12" ry="14"/>
+        <path d="M12 30c0 8 4 12 12 12s12-4 12-12"/>
+      </svg>
+      <h3 class="service-name">Luminous Facial</h3>
+      <p class="service-desc">A bespoke skin ritual using botanical extracts and lymphatic drainage to reveal your skin's natural radiance.</p>
+      <p class="service-price">From AMD 28,000 · 75 min</p>
+    </div>
+
+    <div class="service-card reveal delay-2">
+      <p class="service-num">05</p>
+      <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" color="#b89a6a">
+        <rect x="8" y="12" width="32" height="28" rx="2"/>
+        <path d="M16 12V8a8 8 0 0116 0v4"/>
+        <circle cx="24" cy="26" r="4"/>
+      </svg>
+      <h3 class="service-name">Couples Sanctuary</h3>
+      <p class="service-desc">Share an intimate wellness journey in our private suite — dual massages, champagne, and sacred silence for two.</p>
+      <p class="service-price">From AMD 55,000 · 120 min</p>
+    </div>
+
+    <div class="service-card reveal delay-3">
+      <p class="service-num">06</p>
+      <svg class="service-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" color="#b89a6a">
+        <path d="M8 20c0-8 7-14 16-14s16 6 16 14c0 10-8 22-16 22S8 30 8 20z"/>
+        <path d="M24 12v8l6 4"/>
+      </svg>
+      <h3 class="service-name">Body Wrap Ritual</h3>
+      <p class="service-desc">Purifying clay or seaweed wraps detoxify the skin and accelerate renewal, wrapped in warmth and herbal botanicals.</p>
+      <p class="service-price">From AMD 20,000 · 60 min</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PARALLAX VISUAL ─── -->
+<section id="visual">
+  <div class="visual-bg" id="visual-bg"></div>
+  <div class="visual-content reveal">
+    <p class="visual-quote">"Stillness is where creativity and solutions to problems are found."</p>
+    <p class="visual-attr">— Eckhart Tolle</p>
+  </div>
+</section>
+
+<!-- ─── EXPERIENCE ─── -->
+<section id="experience">
+  <div class="experience-inner">
+    <div class="exp-text">
+      <p class="section-tag reveal">Our Story</p>
+      <h2 class="section-title reveal delay-1">A Decade of<br />Healing Touch</h2>
+      <p class="exp-body reveal delay-2">Born from a passion for holistic wellness, Seraphin was founded in the heart of Yerevan with one vision: to create a space where every guest leaves lighter, softer, and more alive. Our therapists are trained in European and Eastern traditions, each bringing a decade of expertise and genuine devotion to the art of healing.</p>
+      <div class="exp-stats">
+        <div class="reveal delay-1">
+          <p class="stat-num">12<span>k+</span></p>
+          <p class="stat-label">Guests Welcomed</p>
+        </div>
+        <div class="reveal delay-2">
+          <p class="stat-num">7<span>+</span></p>
+          <p class="stat-label">Years of Excellence</p>
+        </div>
+        <div class="reveal delay-3">
+          <p class="stat-num">98<span>%</span></p>
+          <p class="stat-label">Return Rate</p>
+        </div>
+        <div class="reveal delay-4">
+          <p class="stat-num">18</p>
+          <p class="stat-label">Expert Therapists</p>
+        </div>
+      </div>
+    </div>
+    <div class="exp-visual reveal-right">
+      <div class="exp-card exp-card-main">
+        <div class="exp-card-inner">
+          <p style="font-size:0.6rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--gold);margin-bottom:12px;">Seraphin Spa</p>
+          <p>"Where silence<br/>becomes medicine"</p>
+          <div class="card-gold-bar"></div>
+          <p style="font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:rgba(245,240,232,0.4);">Yerevan, Armenia</p>
+        </div>
+      </div>
+      <div class="exp-card exp-card-accent">
+        <div class="exp-card-inner">
+          <p>Seraphin.am</p>
+          <div class="card-gold-bar"></div>
+          <p>Premium Wellness</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── RITUALS ─── -->
+<section id="rituals">
+  <div class="rituals-inner">
+    <div class="section-header" style="margin-bottom:0;">
+      <div class="reveal">
+        <p class="section-tag">Signature Rituals</p>
+        <h2 class="section-title">The Seraphin<br />Collection</h2>
+      </div>
+      <p class="section-desc reveal delay-2">Each ritual is a full sensory experience — from the moment you arrive to the breath you take as you leave.</p>
+    </div>
+
+    <div class="rituals-list">
+      <div class="ritual-item reveal">
+        <p class="ritual-num">01</p>
+        <div>
+          <p class="ritual-name">Golden Hour Ritual</p>
+          <p class="ritual-detail">24K gold facial · hot stone · scalp treatment</p>
+        </div>
+        <p class="ritual-duration">150 min<br/><span style="font-size:0.65rem;color:var(--gold);">AMD 68,000</span></p>
+      </div>
+      <div class="ritual-item reveal delay-1">
+        <p class="ritual-num">02</p>
+        <div>
+          <p class="ritual-name">Forest Immersion</p>
+          <p class="ritual-detail">Pine resin wrap · forest oil massage · steam</p>
+        </div>
+        <p class="ritual-duration">120 min<br/><span style="font-size:0.65rem;color:var(--gold);">AMD 52,000</span></p>
+      </div>
+      <div class="ritual-item reveal delay-2">
+        <p class="ritual-num">03</p>
+        <div>
+          <p class="ritual-name">Rose of Ararat</p>
+          <p class="ritual-detail">Rose petal bath · botanical facial · body polish</p>
+        </div>
+        <p class="ritual-duration">90 min<br/><span style="font-size:0.65rem;color:var(--gold);">AMD 44,000</span></p>
+      </div>
+      <div class="ritual-item reveal delay-3">
+        <p class="ritual-num">04</p>
+        <div>
+          <p class="ritual-name">Ancient Sea</p>
+          <p class="ritual-detail">Dead sea salt scrub · seaweed wrap · deep tissue</p>
+        </div>
+        <p class="ritual-duration">110 min<br/><span style="font-size:0.65rem;color:var(--gold);">AMD 48,000</span></p>
+      </div>
+      <div class="ritual-item reveal delay-4">
+        <p class="ritual-num">05</p>
+        <div>
+          <p class="ritual-name">Moonlight Serenity</p>
+          <p class="ritual-detail">Moonstone facial · sound bath · full body massage</p>
+        </div>
+        <p class="ritual-duration">180 min<br/><span style="font-size:0.65rem;color:var(--gold);">AMD 80,000</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── TESTIMONIALS ─── -->
+<section id="testimonials">
+  <div class="testimonials-inner">
+    <p class="section-tag reveal" style="color:var(--gold);">Guest Stories</p>
+    <h2 class="section-title reveal delay-1" style="color:var(--cream);margin-bottom:60px;">Words from<br />Our Guests</h2>
+
+    <div class="testi-carousel">
+      <div class="testi-slide active">
+        <p class="testi-stars">★★★★★</p>
+        <p class="testi-quote">"I have visited spas across Europe and Asia, but Seraphin holds a singular place in my heart. The therapists here don't just treat your body — they read your soul."</p>
+        <p class="testi-name">— Nare K., Yerevan</p>
+      </div>
+      <div class="testi-slide">
+        <p class="testi-stars">★★★★★</p>
+        <p class="testi-quote">"The Golden Hour ritual changed my understanding of self-care. I walked out feeling as though years of tension had simply dissolved into warmth and light."</p>
+        <p class="testi-name">— Alexander M., Moscow</p>
+      </div>
+      <div class="testi-slide">
+        <p class="testi-stars">★★★★★</p>
+        <p class="testi-quote">"We celebrated our anniversary here. The Couples Sanctuary was pure magic — from the candlelit suite to the perfectly synchronized massage. Unforgettable."</p>
+        <p class="testi-name">— Mariam & David T.</p>
+      </div>
+      <div class="testi-slide">
+        <p class="testi-stars">★★★★★</p>
+        <p class="testi-quote">"Seraphin is my monthly ritual. The consistency of excellence, the warmth of the staff, and the sheer peace of that space make it an irreplaceable part of my life."</p>
+        <p class="testi-name">— Sophie R., Paris</p>
+      </div>
+    </div>
+
+    <div class="testi-dots">
+      <button class="testi-dot active" data-i="0"></button>
+      <button class="testi-dot" data-i="1"></button>
+      <button class="testi-dot" data-i="2"></button>
+      <button class="testi-dot" data-i="3"></button>
+    </div>
+  </div>
+</section>
+
+<!-- ─── BOOKING ─── -->
+<section id="booking">
+  <div class="booking-inner">
+    <div class="booking-info reveal-left">
+      <p class="section-tag">Reserve</p>
+      <h2 class="section-title">Begin Your<br />Journey</h2>
+      <p class="booking-info-body">We welcome you by appointment. Please allow 15 minutes before your session to settle into our sanctuary space and complete your wellness consultation. Arrivals of 30+ minutes late may require rescheduling.</p>
+      <ul class="contact-list">
+        <li>
+          <svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.02 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.29 6.29l1.28-1.28a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          <span>+374 10 123 456</span>
+        </li>
+        <li>
+          <svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <span>hello@seraphin.am</span>
+        </li>
+        <li>
+          <svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>14 Abovyan Street<br/>Yerevan 0002, Armenia</span>
+        </li>
+        <li>
+          <svg class="ci" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Monday – Sunday<br/>10:00 AM – 10:00 PM</span>
+        </li>
+      </ul>
+    </div>
+
+    <form class="booking-form reveal-right" onsubmit="handleBooking(event)">
+      <div class="form-row">
+        <div class="form-group">
+          <label>First Name</label>
+          <input type="text" placeholder="Your name" />
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input type="text" placeholder="Your surname" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" placeholder="+374 __ ___ ___" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Service</label>
+          <select>
+            <option value="">Choose a service</option>
+            <option>Signature Massage</option>
+            <option>Hot Stone Ritual</option>
+            <option>Aromatherapy</option>
+            <option>Luminous Facial</option>
+            <option>Couples Sanctuary</option>
+            <option>Body Wrap Ritual</option>
+            <option>Golden Hour Ritual</option>
+            <option>Forest Immersion</option>
+            <option>Rose of Ararat</option>
+            <option>Ancient Sea</option>
+            <option>Moonlight Serenity</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Preferred Date</label>
+          <input type="date" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Special Requests</label>
+        <textarea placeholder="Any preferences, health notes, or special occasions…"></textarea>
+      </div>
+      <button type="submit" class="btn-primary" style="border:none;cursor:pointer;align-self:flex-start;">Request Appointment</button>
+    </form>
+  </div>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <div class="footer-top">
+    <div>
+      <p class="footer-brand">Seraphin</p>
+      <p class="footer-tagline">A sanctuary of silence and healing in the heart of Yerevan. Where ancient wisdom meets modern luxury.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Services</h4>
+      <ul>
+        <li><a href="#services">Massages</a></li>
+        <li><a href="#services">Facials</a></li>
+        <li><a href="#services">Body Rituals</a></li>
+        <li><a href="#services">Couples</a></li>
+        <li><a href="#rituals">Signature Rituals</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Visit</h4>
+      <ul>
+        <li><a href="#booking">Book Online</a></li>
+        <li><a href="#experience">Our Story</a></li>
+        <li><a href="#testimonials">Reviews</a></li>
+        <li><a href="#">Gift Cards</a></li>
+        <li><a href="#">Memberships</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Connect</h4>
+      <ul>
+        <li><a href="#">Instagram</a></li>
+        <li><a href="#">Facebook</a></li>
+        <li><a href="#">TripAdvisor</a></li>
+        <li><a href="#">hello@seraphin.am</a></li>
+        <li><a href="#">+374 10 123 456</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p class="footer-copy">© 2026 Seraphin Spa. All rights reserved. · Yerevan, Armenia</p>
+    <div class="footer-socials">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Sitemap</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ─── CUSTOM CURSOR ───
+  const cursor = document.getElementById('cursor');
+  const ring = document.getElementById('cursor-ring');
+  let mx = -100, my = -100, rx = -100, ry = -100;
+
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+  (function animCursor() {
+    const ease = 0.15;
+    rx += (mx - rx) * ease;
+    ry += (my - ry) * ease;
+    cursor.style.left = mx + 'px';
+    cursor.style.top = my + 'px';
+    ring.style.left = rx + 'px';
+    ring.style.top = ry + 'px';
+    requestAnimationFrame(animCursor);
+  })();
+
+  document.querySelectorAll('a, button, .service-card, .ritual-item').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      cursor.style.width = '16px';
+      cursor.style.height = '16px';
+      ring.style.width = '56px';
+      ring.style.height = '56px';
+      ring.style.borderColor = 'rgba(184,154,106,0.8)';
+    });
+    el.addEventListener('mouseleave', () => {
+      cursor.style.width = '8px';
+      cursor.style.height = '8px';
+      ring.style.width = '36px';
+      ring.style.height = '36px';
+      ring.style.borderColor = 'rgba(184,154,106,0.5)';
+    });
+  });
+
+  // ─── SCROLL PROGRESS ───
+  const progressBar = document.getElementById('scroll-progress');
+  function updateProgress() {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progressBar.style.width = (window.scrollY / max * 100) + '%';
+  }
+
+  // ─── NAV SCROLL ───
+  const nav = document.getElementById('main-nav');
+  function updateNav() {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  }
+
+  // ─── PARALLAX ───
+  const heroBg = document.getElementById('hero-bg');
+  const visualBg = document.getElementById('visual-bg');
+
+  function handleParallax() {
+    const sy = window.scrollY;
+
+    // Hero parallax
+    heroBg.style.transform = `translateY(${sy * 0.35}px)`;
+
+    // Visual section parallax
+    const vis = document.getElementById('visual');
+    const vr = vis.getBoundingClientRect();
+    if (vr.top < window.innerHeight && vr.bottom > 0) {
+      const progress = (window.innerHeight - vr.top) / (window.innerHeight + vr.height);
+      visualBg.style.transform = `translateY(${(progress - 0.5) * 120}px)`;
+    }
+  }
+
+  // ─── INTERSECTION OBSERVER (reveal animations) ───
+  const revealEls = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+
+  revealEls.forEach(el => observer.observe(el));
+
+  // ─── PHILOSOPHY TEXT WORD-BY-WORD REVEAL ───
+  const philoText = document.getElementById('philosophy-text');
+  const philoLine = document.getElementById('philo-line');
+
+  // Wrap each word in a span
+  const raw = philoText.innerHTML;
+  const wrapped = raw.replace(/<em>(.*?)<\/em>/g, (_, inner) => {
+    return inner.split(' ').map(w => `<em><span class="word">${w}</span></em>`).join(' ');
+  });
+
+  const wordWrapped = wrapped.split(/(<em>.*?<\/em>)/g).map(part => {
+    if (part.startsWith('<em>')) return part;
+    return part.split(' ').filter(Boolean).map(w => `<span class="word">${w}</span>`).join(' ');
+  }).join(' ');
+
+  philoText.innerHTML = wordWrapped;
+  const words = philoText.querySelectorAll('.word');
+
+  const philoObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        words.forEach((w, i) => {
+          setTimeout(() => w.classList.add('lit'), i * 60);
+        });
+        setTimeout(() => philoLine.classList.add('visible'), words.length * 60 + 200);
+        philoObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.4 });
+
+  philoObserver.observe(philoText);
+
+  // ─── TESTIMONIALS CAROUSEL ───
+  const slides = document.querySelectorAll('.testi-slide');
+  const dots = document.querySelectorAll('.testi-dot');
+  let current = 0;
+  let autoTimer;
+
+  function goTo(i) {
+    slides[current].classList.remove('active');
+    dots[current].classList.remove('active');
+    current = i;
+    slides[current].classList.add('active');
+    dots[current].classList.add('active');
+  }
+
+  function autoAdvance() {
+    autoTimer = setInterval(() => goTo((current + 1) % slides.length), 5000);
+  }
+
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      clearInterval(autoTimer);
+      goTo(+dot.dataset.i);
+      autoAdvance();
+    });
+  });
+
+  autoAdvance();
+
+  // ─── BOOKING FORM ───
+  function handleBooking(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.textContent = 'Request Sent ✓';
+    btn.style.background = 'var(--sage)';
+    setTimeout(() => {
+      btn.textContent = 'Request Appointment';
+      btn.style.background = 'var(--gold)';
+    }, 3000);
+  }
+
+  // ─── THROTTLED SCROLL HANDLER ───
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(() => {
+        updateProgress();
+        updateNav();
+        handleParallax();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+
+  updateProgress();
+  updateNav();
+  handleParallax();
+</script>
+</body>
+</html>
