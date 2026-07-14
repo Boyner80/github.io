@@ -1,0 +1,366 @@
+{
+  "name": "Spa Instagram AI Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "instagram-spa-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-get",
+      "name": "Webhook - Verification (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1200, -200],
+      "webhookId": "instagram-spa-webhook-get"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Meta calls this once when you subscribe the webhook.\n// Compare hub.verify_token against the value you set in the Meta App\n// AND in this node (or better: swap this literal for an n8n environment variable).\nconst VERIFY_TOKEN = 'REPLACE_WITH_YOUR_OWN_RANDOM_VERIFY_TOKEN';\n\nconst q = $json.query || {};\nconst mode = q['hub.mode'];\nconst token = q['hub.verify_token'];\nconst challenge = q['hub.challenge'];\n\nif (mode === 'subscribe' && token === VERIFY_TOKEN) {\n  return [{ json: { statusCode: 200, body: challenge } }];\n}\nreturn [{ json: { statusCode: 403, body: 'Verification failed' } }];"
+      },
+      "id": "code-verify-token",
+      "name": "Check Verify Token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-980, -200]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.body}}",
+        "options": {
+          "responseCode": "={{$json.statusCode}}"
+        }
+      },
+      "id": "respond-verification",
+      "name": "Respond - Verification",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-760, -200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "instagram-spa-webhook",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "wh-post",
+      "name": "Webhook - Events (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1200, 100],
+      "webhookId": "instagram-spa-webhook-post"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validates Meta's X-Hub-Signature-256 header against the raw request body\n// using your Facebook App Secret. Requires 'Raw Body' enabled on the Webhook node.\nconst crypto = require('crypto');\n\nconst APP_SECRET = 'REPLACE_WITH_META_APP_SECRET'; // move to an n8n credential/env var in production\n\nconst signatureHeader = ($json.headers && ($json.headers['x-hub-signature-256'] || $json.headers['X-Hub-Signature-256'])) || '';\nconst rawBodyBase64 = $binary && $binary.data ? $binary.data.data : null;\n\nlet valid = false;\nif (rawBodyBase64) {\n  const rawBody = Buffer.from(rawBodyBase64, 'base64');\n  const expected = 'sha256=' + crypto.createHmac('sha256', APP_SECRET).update(rawBody).digest('hex');\n  try {\n    valid = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader));\n  } catch (e) {\n    valid = false;\n  }\n}\n\nreturn [{ json: { ...$json.body, __signatureValid: valid } }];"
+      },
+      "id": "code-verify-signature",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-980, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.__signatureValid}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-signature-valid",
+      "name": "Signature Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-760, 100]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Forbidden",
+        "options": { "responseCode": 403 }
+      },
+      "id": "respond-forbidden",
+      "name": "Respond - Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-540, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "EVENT_RECEIVED",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-ack",
+      "name": "Respond - Ack (200)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-540, -20]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Meta sends a payload with entry[].messaging[]. Extract the first real text message\n// and skip echoes (messages your own page sent), reads, deliveries, etc.\nconst body = $json;\nconst entry = (body.entry && body.entry[0]) || {};\nconst messaging = (entry.messaging && entry.messaging[0]) || {};\n\nconst isEcho = messaging.message && messaging.message.is_echo;\nconst text = messaging.message && messaging.message.text;\nconst senderId = messaging.sender && messaging.sender.id;\n\nif (!senderId || !text || isEcho) {\n  return [{ json: { hasText: false } }];\n}\n\nreturn [{ json: { hasText: true, senderId, text } }];"
+      },
+      "id": "code-parse-message",
+      "name": "Parse Messaging Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-540, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.hasText}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-text",
+      "name": "Has Text Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-320, 160]
+    },
+    {
+      "parameters": {},
+      "id": "noop-ignore",
+      "name": "Ignore (no text)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [-100, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Very simple keyword-based escalation guard. Tune this list as real conversations come in.\nconst ESCALATE_KEYWORDS = [\n  'complain', 'complaint', 'refund', 'angry', 'lawsuit', 'sue',\n  'allerg', 'pregnan', 'medical', 'injur', 'hurt', 'pain', 'reaction',\n  'human', 'person', 'manager', 'speak to someone',\n  'book', 'appointment', 'reservation', 'reschedule', 'cancel'\n];\n\nconst text = ($json.text || '').toLowerCase();\nconst matched = ESCALATE_KEYWORDS.find((kw) => text.includes(kw));\n\nreturn [{\n  json: {\n    senderId: $json.senderId,\n    text: $json.text,\n    escalate: Boolean(matched),\n    escalateReason: matched || null\n  }\n}];"
+      },
+      "id": "code-escalation-check",
+      "name": "Escalation Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-100, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{$json.escalate}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-escalate",
+      "name": "Should Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [120, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/REPLACE_WITH_WHATSAPP_PHONE_NUMBER_ID/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: 'REPLACE_WITH_STAFF_WHATSAPP_NUMBER', type: 'text', text: { body: `New Instagram DM needs a human:\\nFrom: ${$json.senderId}\\nReason: ${$json.escalateReason}\\nMessage: ${$json.text}` } }) }}",
+        "options": {}
+      },
+      "id": "http-whatsapp-alert",
+      "name": "Send WhatsApp Alert to Staff",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [340, -20],
+      "credentials": {
+        "httpHeaderAuth": { "id": "", "name": "WhatsApp Cloud API Token" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/me/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { id: $json.senderId }, message: { text: 'Thanks for reaching out! A team member will get back to you shortly.' } }) }}",
+        "options": {}
+      },
+      "id": "http-ig-holding-reply",
+      "name": "Send Holding Reply (IG)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, -20],
+      "credentials": {
+        "httpHeaderAuth": { "id": "", "name": "Instagram Page Access Token" }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sysprompt",
+              "name": "systemPrompt",
+              "type": "string",
+              "value": "You are the Instagram DM assistant for [SPA NAME]. Answer ONLY using the facts below. Be warm, concise (2-4 sentences), and never invent prices, hours, or medical/safety claims. If the answer isn't in these facts, say a team member will follow up shortly instead of guessing.\n\n--- SPA KNOWLEDGE BASE ---\nPASTE THE CONTENTS OF knowledge-base/spa-info.md HERE (or keep it only in n8n if you don't want it public).\n--- END KNOWLEDGE BASE ---"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-knowledge-base",
+      "name": "Spa Knowledge Base",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [340, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.4, messages: [ { role: 'system', content: $json.systemPrompt }, { role: 'user', content: $('Escalation Check').item.json.text } ] }) }}",
+        "options": {}
+      },
+      "id": "http-openai",
+      "name": "OpenAI Chat Completion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [560, 220],
+      "credentials": {
+        "httpHeaderAuth": { "id": "", "name": "OpenAI API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const reply = $json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content;\nreturn [{\n  json: {\n    senderId: $('Escalation Check').item.json.senderId,\n    reply: reply ? reply.trim() : \"Thanks for your message! A team member will follow up shortly.\"\n  }\n}];"
+      },
+      "id": "code-extract-reply",
+      "name": "Extract AI Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/me/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/json" }]
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ recipient: { id: $json.senderId }, message: { text: $json.reply } }) }}",
+        "options": {}
+      },
+      "id": "http-ig-ai-reply",
+      "name": "Send AI Reply (IG)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 220],
+      "credentials": {
+        "httpHeaderAuth": { "id": "", "name": "Instagram Page Access Token" }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Verification (GET)": {
+      "main": [[{ "node": "Check Verify Token", "type": "main", "index": 0 }]]
+    },
+    "Check Verify Token": {
+      "main": [[{ "node": "Respond - Verification", "type": "main", "index": 0 }]]
+    },
+    "Webhook - Events (POST)": {
+      "main": [[{ "node": "Verify Signature", "type": "main", "index": 0 }]]
+    },
+    "Verify Signature": {
+      "main": [[{ "node": "Signature Valid?", "type": "main", "index": 0 }]]
+    },
+    "Signature Valid?": {
+      "main": [
+        [
+          { "node": "Respond - Ack (200)", "type": "main", "index": 0 },
+          { "node": "Parse Messaging Event", "type": "main", "index": 0 }
+        ],
+        [{ "node": "Respond - Forbidden", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Messaging Event": {
+      "main": [[{ "node": "Has Text Message?", "type": "main", "index": 0 }]]
+    },
+    "Has Text Message?": {
+      "main": [
+        [{ "node": "Escalation Check", "type": "main", "index": 0 }],
+        [{ "node": "Ignore (no text)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Escalation Check": {
+      "main": [[{ "node": "Should Escalate?", "type": "main", "index": 0 }]]
+    },
+    "Should Escalate?": {
+      "main": [
+        [{ "node": "Send WhatsApp Alert to Staff", "type": "main", "index": 0 }],
+        [{ "node": "Spa Knowledge Base", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send WhatsApp Alert to Staff": {
+      "main": [[{ "node": "Send Holding Reply (IG)", "type": "main", "index": 0 }]]
+    },
+    "Spa Knowledge Base": {
+      "main": [[{ "node": "OpenAI Chat Completion", "type": "main", "index": 0 }]]
+    },
+    "OpenAI Chat Completion": {
+      "main": [[{ "node": "Extract AI Reply", "type": "main", "index": 0 }]]
+    },
+    "Extract AI Reply": {
+      "main": [[{ "node": "Send AI Reply (IG)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
