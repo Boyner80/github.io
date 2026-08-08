@@ -104,9 +104,11 @@ lav-auto/
 │
 ├─ docs/                            # this documentation
 │
-├─ middleware.ts                    # next-intl locale detection/redirect
-├─ next.config.ts
-├─ tailwind.config.ts
+├─ proxy.ts                         # next-intl locale detection/redirect (Next.js 16
+│                                      renamed the `middleware.ts` convention to `proxy.ts`)
+├─ next.config.ts                   # wraps next-intl's plugin
+├─ postcss.config.mjs               # Tailwind v4 is CSS-config'd (@theme in globals.css),
+│                                      no tailwind.config.ts
 ├─ tsconfig.json                    # strict: true
 └─ package.json
 ```

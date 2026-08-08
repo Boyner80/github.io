@@ -91,7 +91,7 @@ Key points:
 
 | Concern | Choice | Why |
 |---|---|---|
-| Framework | Next.js (App Router), latest stable 15.x on React 19 | SSR/SSG/ISR, server components, mature Vercel deployment story |
+| Framework | Next.js 16 (App Router) on React 19 | SSR/SSG/ISR, server components, mature Vercel deployment story. Next.js 16 renamed the `middleware.ts` convention to `proxy.ts` — same next-intl mechanism, new filename, noted here since it's exactly the kind of framework-version detail that goes stale silently. |
 | Language | TypeScript, `strict: true` | Type-safety requirement; catches schema/UI drift at compile time |
 | Styling | Tailwind CSS v4 | Utility-first, mobile-first defaults, no CSS-in-JS runtime cost |
 | Database | PostgreSQL via Supabase | Relational model fits the normalized schema; Supabase gives Postgres + Auth + Storage + RLS in one Vercel-friendly package |

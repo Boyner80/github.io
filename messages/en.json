@@ -1,0 +1,18 @@
+{
+  "common": {
+    "appName": "Lav Auto",
+    "loading": "Loading…"
+  },
+  "nav": {
+    "home": "Home",
+    "compare": "Compare"
+  },
+  "localeSwitcher": {
+    "label": "Language"
+  },
+  "home": {
+    "title": "Lav Auto",
+    "tagline": "Discover, compare, and research cars.",
+    "placeholder": "Vehicle search and browsing are coming soon."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "common": {
+    "appName": "Lav Auto",
+    "loading": "Загрузка…"
+  },
+  "nav": {
+    "home": "Главная",
+    "compare": "Сравнить"
+  },
+  "localeSwitcher": {
+    "label": "Язык"
+  },
+  "home": {
+    "title": "Lav Auto",
+    "tagline": "Находите, сравнивайте и изучайте автомобили.",
+    "placeholder": "Поиск и просмотр автомобилей скоро появятся."
+  }
+}
