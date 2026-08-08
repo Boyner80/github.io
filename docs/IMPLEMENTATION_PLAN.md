@@ -22,20 +22,25 @@ Supabase client connects.
 
 ## Phase 1 — Database & Data Access Layer
 
-- Write the migrations for every table in `DATABASE_SCHEMA.md` (hierarchy, lookups,
-  spec category tables, images), with RLS policies from the start.
+- Write the migrations for every table in `DATABASE_SCHEMA.md` (hierarchy, lookups
+  including `spec_regions` and `countries`, spec category tables, images), with RLS
+  policies from the start.
+- Seed `countries` with Armenia (`AM`, currency `AMD`, `is_primary = true`) — the only
+  Armenia-first schema addition that's real V1 data; nothing else in §11 of
+  `ARCHITECTURE.md` is built yet.
 - Write `supabase/seed/dev-seed.sql`: a small, clearly-labeled development dataset —
   enough to exercise every relationship, specifically including the scenario from
   `ARCHITECTURE.md` §10.3: at minimum one variant with (a) multiple model years sharing
   one spec revision (proves de-duplication), (b) a year where the spec revision changes
-  (proves facelift/mid-cycle handling), and (c) two markets for the same model year
-  with different spec revisions (proves market differentiation) — plus a couple of
-  shared engines reused across configurations. No fabricated numbers presented as real
-  — seed comment header states this is placeholder/test data.
+  (proves facelift/mid-cycle handling), and (c) two spec regions for the same model
+  year with different spec revisions (proves spec-region differentiation) — plus a
+  couple of shared engines reused across configurations. No fabricated numbers
+  presented as real, and — per the Armenia-first review — no fabricated Armenian
+  availability or pricing rows either, since neither table exists yet.
 - Generate TypeScript types from the schema (`supabase gen types typescript`).
 - Build `lib/data/*` repository functions (`getMakeBySlug`, `listModelsForMake`,
   `getGenerationBySlug`, `listConfigurationsForVariant`,
-  `getConfiguration(variantSlug, year, market?)`, etc.), fully typed, with no query
+  `getConfiguration(variantSlug, year, specRegion?)`, etc.), fully typed, with no query
   logic living anywhere outside this layer.
 - Zod schemas for anything crossing a boundary (route/search params, including the
   `year` route param and the `v=slug.year` compare param format).
@@ -118,7 +123,7 @@ manufacturer/model/generation/vehicle/compare pages in all three locales.
 
 - Environment variable and secrets review (service role key never reachable from client
   bundles — verify via build output inspection, not just code review).
-- Confirm RLS policies match `DATABASE_SCHEMA.md` §8 exactly (read-only, no anon
+- Confirm RLS policies match `DATABASE_SCHEMA.md` §9 exactly (read-only, no anon
   write path) directly against the deployed database, not just the migration files.
 - Deploy to Vercel (production project), verify ISR revalidation behavior in production.
 - Smoke test: every page type, all three locales, mobile + desktop viewport, search,
@@ -128,10 +133,29 @@ manufacturer/model/generation/vehicle/compare pages in all three locales.
 **Exit criteria:** V1 as scoped in the brief is live and verifiable end-to-end, with
 nothing from the long-term feature list implemented.
 
+## Phase 7 — Armenian Market Data Layer (near-term follow-up, not V1, not built now)
+
+Called out separately from the long-term "out of scope" list below because, unlike
+garages/clubs/social, this is core to Lav Auto's stated Armenia-first positioning and
+is likely the right *next* body of work once V1 ships — not a someday feature. Not
+started until real, sourced Armenian data collection is in place, per
+`ARCHITECTURE.md` §11:
+
+- Build `vehicle_availability`, `price_types`, and `price_observations` (schema
+  designed in `ARCHITECTURE.md` §11.4–11.5; not created in earlier phases).
+- Establish real data sourcing for Armenian availability/pricing (partner dealers,
+  manual research, an eventual data feed) — explicitly not fabricated or estimated by
+  Lav Auto itself.
+- Surface availability/AMD pricing on the Vehicle page as an additive read (per §11.1,
+  layer 1 rendering doesn't change; this becomes a new section on an existing page).
+- Only after this: dealer/importer business profiles and listing inventory (§11.6),
+  which depend on both this phase and the future `businesses`/accounts subsystem.
+
 ## Explicitly out of scope for all of the above
 
 Accounts/auth, garages, vehicle ownership, photos/builds/mods, social posts, follows,
 clubs, local communities, dealers/mechanics/detailers/tuners/parts businesses, business
 profiles, local service discovery, reviews, quizzes, achievements/points, sponsored
-rewards, advertising, events, notifications, messaging, pricing data. See
-`ARCHITECTURE.md` §8 for how each attaches to this foundation when its time comes.
+rewards, advertising, events, notifications, messaging. See `ARCHITECTURE.md` §8 for how
+each attaches to this foundation when its time comes, and §11 specifically for the
+Armenian availability/pricing/dealer-listing shape.

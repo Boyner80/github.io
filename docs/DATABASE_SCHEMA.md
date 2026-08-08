@@ -4,7 +4,7 @@ PostgreSQL, hosted on Supabase. All catalog tables are public-read via RLS and w
 only by migrations/seed/ingestion scripts (service role) — no client write path exists
 in V1.
 
-> **Revision note:** this schema was revised after an architecture review focused on
+> **Revision note (1):** this schema was revised after an architecture review focused on
 > long-term identity integrity (see `ARCHITECTURE.md` §10 for the full deep dive, and
 > §9 for why this was flagged as an expensive-to-change decision). The original design
 > treated `variants` as the stable entity future
@@ -15,6 +15,18 @@ in V1.
 > car is, not just its trim name. This revision introduces `vehicle_configurations` as
 > a new layer between `variants` and the spec tables to fix that before any
 > user-generated content exists on top of it.
+>
+> **Revision note (2):** a follow-up review established Armenia as Lav Auto's primary
+> V1 market (see `ARCHITECTURE.md` §11). That surfaced a naming/conceptual collision:
+> the `markets` table introduced in revision (1) actually meant *regulatory/spec
+> region* (US-spec vs. EU-spec figures) — but Armenia has no regulatory spec of its own
+> and imports cars homologated for other regions, so "which country a car is
+> commercially available/priced in" is a genuinely different axis from "which region's
+> regulatory figures a configuration's numbers reflect." Conflating the two under one
+> `markets` table would have made the Armenia-availability/pricing work (documented,
+> not yet built — see `ARCHITECTURE.md` §11) ambiguous about which one it meant. This
+> revision renames that table to `spec_regions` and adds a new, separate `countries`
+> table for commercial/business geography, seeded with Armenia as the primary market.
 
 ## Design principles applied here
 
@@ -28,11 +40,16 @@ in V1.
   columns for alternate units. Conversion is a presentation-layer concern
   (`lib/units/*`), not a data-modeling one.
 - **Reusable lookups, not repeated strings.** Engines, transmissions, drivetrains, body
-  types, fuel types, aspiration, and markets are lookup tables referenced by ID, so
+  types, fuel types, aspiration, and spec regions are lookup tables referenced by ID, so
   (for example) the B58 engine's hardware facts are stored once even though it appears
   in many variants.
+- **Regulatory spec region and commercial country are two different tables** (§6, §6.1)
+  — a spec region says whose regulatory figures a configuration's numbers reflect
+  (US-spec vs. EU-spec); a country says where Lav Auto operates commercially (Armenia
+  first). Collapsing them would make the Armenia-market work in `ARCHITECTURE.md` §11
+  ambiguous about which one it meant.
 - **Identity is decoupled from content.** `vehicle_configurations` rows (one per
-  variant × model year × market) are cheap, stable, and addressable, even when many of
+  variant × model year × spec region) are cheap, stable, and addressable, even when many of
   them point at the exact same `spec_revisions` content because nothing actually
   changed that year. This is what lets Lav Auto have a stable URL/ID for "2025 M340i
   xDrive" without duplicating spec values when 2024 and 2025 are identical.
@@ -54,7 +71,7 @@ erDiagram
     GENERATIONS ||--o{ VARIANTS : has
     VARIANTS ||--o{ VEHICLE_CONFIGURATIONS : has
     VARIANTS ||--o{ VEHICLE_IMAGES : has
-    MARKETS ||--o{ VEHICLE_CONFIGURATIONS : scopes
+    SPEC_REGIONS ||--o{ VEHICLE_CONFIGURATIONS : scopes
     VEHICLE_CONFIGURATIONS }o--|| SPEC_REVISIONS : "uses (many share one)"
     VEHICLE_CONFIGURATIONS ||--o{ VEHICLE_IMAGES : "may have year-specific photos"
 
@@ -77,12 +94,14 @@ erDiagram
 ```
 
 Reading the hierarchy: a **variant** (e.g. "M340i xDrive" within the G20 generation) has
-one **vehicle configuration** row per model year it was sold in, per market it was sold
-in — this is the precise, addressable, referenceable "2024 M340i xDrive, US market"
-entity. Many configuration rows can point at the same **spec revision** (the actual bag
-of spec values) when nothing changed year over year; a facelift, power bump, or
-market-specific difference means a configuration points at a *different* spec revision
-instead of duplicating one field at a time.
+one **vehicle configuration** row per model year it was sold in, per regulatory spec
+region it was built to — this is the precise, addressable, referenceable "2024 M340i
+xDrive, US-spec" entity. Many configuration rows can point at the same **spec
+revision** (the actual bag of spec values) when nothing changed year over year; a
+facelift, power bump, or spec-region difference means a configuration points at a
+*different* spec revision instead of duplicating one field at a time. (Which *country*
+a car is commercially available or priced in is a separate axis — see §6.1 and
+`ARCHITECTURE.md` §11.)
 
 ## 2. Hierarchy tables
 
@@ -126,10 +145,10 @@ create table generations (
 ## 3. Variant (trim/engine/drivetrain/transmission line)
 
 A **variant** is what the brief calls "Variant/Trim" — e.g. "M340i xDrive". It fixes the
-trim name within a generation. It intentionally does **not** carry model year, market,
-or spec data directly — those live on `vehicle_configurations` (§4) and `spec_revisions`
-(§5), because the same trim name commonly persists across several model years and
-markets with different underlying specs.
+trim name within a generation. It intentionally does **not** carry model year, spec
+region, or spec data directly — those live on `vehicle_configurations` (§4) and
+`spec_revisions` (§5), because the same trim name commonly persists across several
+model years and spec regions with different underlying specs.
 
 ```sql
 create table variants (
@@ -152,28 +171,36 @@ M340i xDrive," not for "the 2024 M340i xDrive specifically"). It is simply no lo
 *most precise* identity, and future systems that need precision (Garage, reviews,
 listings) reference `vehicle_configurations` instead — see §9 in `ARCHITECTURE.md`.
 
-## 4. Vehicle Configurations — the stable per-year, per-market identity
+## 4. Vehicle Configurations — the stable per-year, per-spec-region identity
 
 This is the table added by the identity review. A **configuration** is one
-(variant, model year, market) combination — the answer to "exactly which car." It is
-the entity:
+(variant, model year, spec region) combination — the answer to "exactly which car,
+technically." It is the entity:
 
 - the Vehicle page URL resolves to (see `ARCHITECTURE.md` §7 for the URL strategy),
 - comparisons select (§ `COMPARISON_STATE.md`),
 - and a future Garage entry references when the user's exact car is known
   (`ARCHITECTURE.md` §8).
 
+`spec_region` here means the regulatory/homologation region whose figures the
+configuration's numbers reflect (US-spec, EU-spec, ...) — it is **not** the same as
+"which country this car is commercially sold or priced in." Armenia, for example, has
+no regulatory spec of its own; Armenian-market cars are US-spec, EU-spec, Russian-market
+-spec, etc. imports. That commercial/country dimension is `countries` (§6.1) and is used
+by the separate, not-yet-built availability/pricing tables documented in
+`ARCHITECTURE.md` §11 — see that section for why the two are kept apart.
+
 ```sql
 create table vehicle_configurations (
   id                bigint generated always as identity primary key,
   variant_id        bigint not null references variants(id) on delete restrict,
   model_year        smallint not null,
-  market_id         bigint not null references markets(id),  -- see §6; a 'GLOBAL' row exists for undifferentiated data
+  spec_region_id    bigint not null references spec_regions(id),  -- see §6; a 'GLOBAL' row exists for undifferentiated data
   spec_revision_id  bigint not null references spec_revisions(id) on delete restrict,
   is_verified        boolean not null default false,          -- convenience mirror of spec_revisions.is_verified at query time
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now(),
-  unique (variant_id, model_year, market_id)
+  unique (variant_id, model_year, spec_region_id)
 );
 create index on vehicle_configurations (variant_id);
 create index on vehicle_configurations (spec_revision_id);
@@ -189,11 +216,12 @@ Notes:
   pointing at a *different* `spec_revision_id`. No separate "facelift" flag or entity is
   needed — it falls out of the model directly, which is what §9.2 in
   `ARCHITECTURE.md` explains was missing before this revision.
-- **A market difference** (US vs EU M340i xDrive, same model year) is two configuration
-  rows — same `variant_id`, same `model_year`, different `market_id` — typically
-  pointing at different spec revisions, since the actual figures usually differ.
+- **A spec-region difference** (US-spec vs EU-spec M340i xDrive, same model year) is two
+  configuration rows — same `variant_id`, same `model_year`, different
+  `spec_region_id` — typically pointing at different spec revisions, since the actual
+  figures usually differ.
 - **This table has no `slug` of its own.** It's addressed by composing the variant's
-  path with its model year (and, when relevant, a market qualifier) — see
+  path with its model year (and, when relevant, a spec-region qualifier) — see
   `ARCHITECTURE.md` §7. A dedicated slug would be redundant with that composition and
   would be one more thing to keep in sync.
 
@@ -417,20 +445,49 @@ create table drivetrains (
   name  text not null
 );
 
-create table markets (
+create table spec_regions (
   id    bigint generated always as identity primary key,
   code  text not null unique,    -- 'US', 'EU', 'UK', 'JP', 'GLOBAL', ...
   name  text not null
 );
--- A 'GLOBAL' row is seeded and used as the default market for catalog entries that
--- haven't been differentiated by market yet — see ARCHITECTURE.md §7 (URL strategy)
--- for how this keeps V1's UI simple without leaving a nullable, ambiguous market
--- on the one table (vehicle_configurations) whose whole job is precise identity.
+-- A 'GLOBAL' row is seeded and used as the default spec region for catalog entries
+-- that haven't been differentiated by region yet — see ARCHITECTURE.md §7 (URL
+-- strategy) for how this keeps V1's UI simple without leaving a nullable, ambiguous
+-- region on the one table (vehicle_configurations) whose whole job is precise identity.
+-- NOTE: this is the *regulatory/homologation* region (which figures a configuration's
+-- numbers reflect), not a commercial market. See §6.1 for the country/commercial-market
+-- table this is deliberately kept separate from.
 ```
 
 Lookup table values are translated in the UI via `slug`/`code` as a translation key
 (see `LOCALIZATION.md`) — they intentionally do not have per-locale name columns. This
 is a fixed, small, developer-curated enum set, not user-authored content.
+
+### 6.1 `countries` — commercial/business geography (Armenia-first)
+
+A separate lookup from `spec_regions` (§6), added for Lav Auto's Armenia-first market
+strategy (`ARCHITECTURE.md` §11). `countries` represents *where Lav Auto operates
+commercially* — availability, dealers, pricing — which is independent of which
+regulatory spec a given car was built to. It is created now, in V1, even though nothing
+yet references it (`vehicle_availability`, `price_observations`, and dealer/listing
+tables are documented but not built — see `ARCHITECTURE.md` §11) because it's a cheap,
+stable lookup that makes "Armenia is the primary market" a concrete fact in the schema
+from day one, not something deferred to whenever pricing ships.
+
+```sql
+create table countries (
+  id             bigint generated always as identity primary key,
+  code           text not null unique,     -- ISO 3166-1 alpha-2, e.g. 'AM'
+  name           text not null,
+  currency_code  text not null,             -- ISO 4217 default display currency, e.g. 'AMD' for Armenia
+  is_primary     boolean not null default false,  -- exactly one row should be true; enforced by seed data + app convention in V1, not a DB constraint (single-row scale doesn't justify one yet)
+  is_active      boolean not null default true,
+  created_at     timestamptz not null default now()
+);
+-- V1 seed: a single row — ('AM', 'Armenia', 'AMD', is_primary = true). Adding a second
+-- country later (e.g. Georgia, Russia) is one insert here; it touches no other table
+-- in this document — see ARCHITECTURE.md §11 for why that's the point of this split.
+```
 
 ## 7. Images
 
@@ -501,7 +558,8 @@ alter table fuel_types enable row level security;
 alter table engines enable row level security;
 alter table transmissions enable row level security;
 alter table drivetrains enable row level security;
-alter table markets enable row level security;
+alter table spec_regions enable row level security;
+alter table countries enable row level security;
 
 -- one read-only policy per table, e.g.:
 create policy "public read" on makes for select using (true);
@@ -517,9 +575,20 @@ create policy "public read" on makes for select using (true);
   including exactly how a future `garage_vehicles` table should reference
   `vehicle_configurations`.
 - **No pricing/currency tables.** Not in the V1 brief. `ARCHITECTURE.md` §11 documents
-  the intended future shape (MSRP history, market, currency, dealer/used pricing) in
-  enough detail to confirm nothing here assumes a single universal price — there is
+  the intended future shape (`price_types`, `price_observations`, dealer/used pricing)
+  in enough detail to confirm nothing here assumes a single universal price — there is
   no price column anywhere in this schema, on purpose.
+- **No `vehicle_availability` table.** Whether a given configuration is officially
+  offered, dealer-available, importer-available, or used-market-only in Armenia (or any
+  other country) is a real, planned concern — but populating it means real, sourced
+  data entry, which doesn't exist yet ("do not add fake or manually guessed Armenian
+  prices" applies equally to fabricated availability claims). The shape is documented
+  in `ARCHITECTURE.md` §11 so building it later is additive: a new table referencing
+  `variants` and `countries`, no change to the catalog.
+- **No dealer/importer/listing inventory tables.** Individual for-sale vehicles (with
+  VIN, mileage, condition, asking price) belong to the future `businesses` subsystem
+  (`ARCHITECTURE.md` §8, §11) and are a different concern from both the catalog and the
+  aggregate availability/pricing tables above.
 - No full CMS-style `translations` table — enum values and long-tail attribute labels
   are translated via static i18n keys (see `LOCALIZATION.md`); this is revisited only
   if/when Lav Auto needs editor-authored per-locale long-form content.

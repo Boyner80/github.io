@@ -8,9 +8,17 @@ browse makes → models → generations → variants, view grouped specification
 social, businesses, events, messaging) is explicitly out of scope, but the schema and
 app boundaries below are chosen so those systems can be *added*, not *retrofitted*.
 
+**Armenia is Lav Auto's primary market for V1 and the foreseeable early versions.**
+The product supports English, Armenian, and Russian throughout, but "primary market"
+is a business/data concept, distinct from language: it means Armenia is where vehicle
+availability and pricing will eventually be tracked first, and where the app's default
+market context points. The global automotive catalog (makes, models, generations,
+variants, specs) is never restricted to Armenia — see §11 for the full design and why
+that separation matters.
+
 Guiding constraint from the brief: don't build the future features now, but don't make
 decisions that make them expensive later. Section 8 calls out exactly where that
-principle drove a specific choice.
+principle drove a specific choice; §11 does the same for the Armenia-first requirement.
 
 ## 2. Architectural Risks & Ambiguities
 
@@ -19,12 +27,13 @@ Called out explicitly because they affect the schema/routing decisions below.
 | # | Risk / ambiguity | Resolution for V1 |
 |---|---|---|
 | 1 | Vehicle page URL needs to support real, high-volume search intent like "2025 BMW M340i xDrive specs," and specs can differ meaningfully by model year within a trim. | **Revised after architecture review** (see §10): model year is a required path segment — `/cars/bmw/3-series/g20/m340i-xdrive/2025`. It resolves to a `vehicle_configurations` row, the new stable per-year identity introduced in this revision. The year-less path (`/cars/bmw/3-series/g20/m340i-xdrive`) is a real, separately-indexable overview page listing available years, not a redirect. See §10 for the full identity model and §7 for the URL strategy. |
-| 2 | Specs can also differ by market/region (US vs EU headlights, mph vs km/h source figures; a 2024 US M340i xDrive and a 2024 EU M340i xDrive share a name but differ in numbers). | **Revised after architecture review** (see §10): market is a first-class column on `vehicle_configurations` (not nullable — a seeded `GLOBAL` market row is used for undifferentiated data), so the identity model already distinguishes market internally. V1 UI still shows one market per catalog entry and does not expose market switching; when it's added, it's a query-param refinement (`?market=EU`) on top of an already-correct schema, not a schema change. |
-| 3 | No pricing data is mentioned anywhere in the brief. | Deliberately excluded from V1 schema. Do not add a `price` column speculatively — it's exactly the kind of premature field the brief warns against. Documented here so it isn't "silently forgotten," it's a conscious cut. |
+| 2 | Specs can also differ by regulatory spec region (US-spec vs EU-spec headlights, mph vs km/h source figures; a 2024 US-spec M340i xDrive and a 2024 EU-spec M340i xDrive share a trim name but differ in numbers). | **Revised after architecture review** (see §10): spec region is a first-class column on `vehicle_configurations` (not nullable — a seeded `GLOBAL` row is used for undifferentiated data), so the identity model already distinguishes it internally. V1 UI still shows one spec region per catalog entry and does not expose region switching; when it's added, it's a query-param refinement on top of an already-correct schema, not a schema change. |
+| 3 | Pricing isn't part of V1 scope, but Armenia is the primary market and Armenian pricing will matter soon — and it must never be conflated with a single global price. | Deliberately excluded from V1 schema; no `price` column anywhere. §11 documents the intended shape (country + currency + configuration + price type + source + date) in enough detail to guarantee nothing added later assumes one universal price, and specifically that AMD/Armenia figures are never derived by converting a US/EU MSRP. |
 | 4 | "Popular manufacturers" / "popular comparisons" on Home imply some ranking signal, but V1 has no analytics/traffic system. | V1 ships these as curated/static lists (editorially chosen, stored as simple config or a `featured` flag in the DB), not computed rankings. Swapping to computed rankings later is additive. |
 | 5 | Vehicle page needs a "basic summary." Free-text summaries would need per-locale translated copy, which is a content-authoring system we don't have in V1. | The summary is **generated**, not stored: an i18n message template (e.g. `"{make} {model} {variant} — {horsepower} hp, {drivetrain}"`) interpolates untranslated identity fields (make/model/variant names) and translated enum labels (drivetrain, body type). No summary text is persisted per locale. If editorial summaries are wanted later, that's an additive `content` table, not a redesign. |
 | 6 | Image provider is unspecified ("selected separately"). | Images are modeled as their own table with a `provider` discriminator and an opaque `external_ref`/`url`, accessed only through a data-access function (`lib/data/images.ts`). No component ever hardcodes a CDN URL pattern. |
 | 7 | Production automotive dataset/API is unspecified. | The seed dataset is small, hand-entered, and explicitly marked as development/test data (see §7 of the brief, honored in `DATABASE_SCHEMA.md` and seed scripts). All catalog reads go through a repository layer so the source can change from "seed SQL" to "external API sync" without touching UI code. |
+| 8 | The global catalog will inevitably contain makes/models/variants that aren't actually obtainable in Armenia — nothing should imply otherwise. | The catalog (global, spec-only) and Armenian availability are structurally separate — see §11. V1 doesn't populate or display availability at all (no real, sourced Armenian availability data exists yet), so this risk is neutralized by simply not asserting availability either way in V1, rather than by defaulting to "assume available." |
 
 ## 3. High-Level System Architecture
 
@@ -172,13 +181,17 @@ Decisions, and why:
   pattern automotive sites with real year-over-year SEO traffic use in practice. The
   page content can and should note when a year is "carried over unchanged" rather than
   hide that the two pages are near-duplicates from the user.
-- **Market is not a path segment in V1.** Unlike model year, market is not part of the
-  brief's V1 UI scope and most users never need to think about it. It is modeled as a
-  query parameter (`?market=EU`) reserved for a later phase, defaulting to the single
-  market a given configuration's data represents (see `GLOBAL` market row,
-  `DATABASE_SCHEMA.md` §6). Because `vehicle_configurations` already separates market
-  as a real column (§10), turning this on later is additive — no data model change,
-  just a new route parameter and a market switcher component.
+- **Spec region is not a path segment in V1.** Unlike model year, the regulatory spec
+  region (US-spec vs EU-spec, etc.) is not part of the brief's V1 UI scope and most
+  users never need to think about it. It is modeled as a query parameter
+  (`?spec=EU`) reserved for a later phase, defaulting to the single region a given
+  configuration's data represents (see `GLOBAL` spec region row, `DATABASE_SCHEMA.md`
+  §6). Because `vehicle_configurations` already separates spec region as a real column
+  (§10), turning this on later is additive — no data model change, just a new route
+  parameter and a spec-region switcher component. **This is a different concept from
+  the Armenia-first country/commercial-market work in §11** — a spec region describes
+  regulatory figures, not where a car is sold or what it costs; don't conflate the two
+  when this ships.
 
 ## 8. Future Platform Evolution
 
@@ -188,15 +201,16 @@ exists to show the current design doesn't block it.
 | Future system | How it attaches without redesigning V1 |
 |---|---|
 | User accounts / profiles | Supabase Auth, additive. RLS policies added to *new* tables only; catalog tables stay public-read. |
-| Personal virtual garage / owned vehicles | New `garage_vehicles` table referencing **`vehicle_configurations`** — the precise, per-year, per-market identity (see §10) — not `variants`. Full reference pattern, including what happens when the user's exact configuration isn't in the catalog, is worked out in §10.4. |
+| Personal virtual garage / owned vehicles | New `garage_vehicles` table referencing **`vehicle_configurations`** — the precise, per-year, per-spec-region identity (see §10) — not `variants`. Full reference pattern, including what happens when the user's exact configuration isn't in the catalog, is worked out in §10.4. |
 | Vehicle photos / builds / modifications | New tables FK'd to `garage_vehicles`. Independent of the catalog `vehicle_images` table (which holds *stock/reference* images, not user uploads). Supabase Storage buckets, separate from whatever provider serves catalog images. |
 | Social posts, following | New `posts`, `follows` tables FK'd to `auth.users`. Optionally `posts.variant_id` (coarse — "posted about the M340i xDrive generally") or `posts.vehicle_configuration_id` (precise — "posted about my specific 2024") depending on the post type. |
-| Make/model clubs, local communities | New `clubs` table, optionally FK'd to `models` (make/model-specific) — the normalized make/model tables already support this join cleanly; a flat `cars` table would not have. Clubs are deliberately scoped at the `variant`/`model` level, not per-configuration — "M340i xDrive owners," not "2024 US M340i xDrive owners." |
-| Dealers, mechanics, detailers, tuners, parts businesses | New `businesses` table family, independent of the catalog. Vehicle inventory/listings reference `vehicle_configurations` (a listing is for a specific year/market car, priced accordingly — see §11), not a duplicated business-owned copy of spec data. |
+| Make/model clubs, local communities | New `clubs` table, optionally FK'd to `models` (make/model-specific) — the normalized make/model tables already support this join cleanly; a flat `cars` table would not have. Clubs are deliberately scoped at the `variant`/`model` level, not per-configuration — "M340i xDrive owners," not "2024 M340i xDrive owners." |
+| Dealers, mechanics, detailers, tuners, parts businesses | New `businesses` table family, independent of the catalog, scoped to a `country` (Armenia first — see §11). Vehicle inventory/listings reference `vehicle_configurations` (a listing is for a specific year/spec-region car) and `countries` (which market it's listed in), priced per-listing — not a duplicated business-owned copy of spec data. |
+| Armenian vehicle availability & used-car listings | See §11 in full — `vehicle_availability` (official/dealer/importer/used-market classification per variant, country, optionally year) and dealer/listing inventory are both designed but not built in V1. |
 | Reviews | New `reviews` table FK'd to `vehicle_configuration_id` (+ optionally `garage_vehicle_id` for verified-owner reviews) and `user_id`. Configuration-level, not variant-level, because a review of "the 2024 pre-facelift" and "the 2025 facelifted" car may legitimately disagree. |
 | Quizzes / achievements / points / sponsored rewards | New, fully independent tables; may reference `makes`/`models`/`variants` for quiz content but need nothing from them structurally. |
 | Business advertising, events, notifications, messaging | New subsystems with no FK dependency on the catalog at all. |
-| Pricing (MSRP, dealer, used-market) | Not modeled at all in V1 — see §11 for the intended future shape and why nothing here assumes a single price. |
+| Pricing (official MSRP, dealer, used-market, by country/currency) | Not modeled at all in V1 — see §11 for the intended future shape and why nothing here assumes a single price. |
 
 The unifying idea: **the catalog (`makes` → `models` → `generations` → `variants` →
 spec tables) is a stable, read-mostly reference dataset that every future
@@ -251,6 +265,17 @@ schema redesign under load).
 6. **Keeping the catalog schema RLS-public and auth-independent.** Nothing in the
    catalog schema references `auth.users`. This is what makes "add accounts later"
    additive instead of a migration of existing rows.
+7. **Separating regulatory spec region from commercial country, from the start.**
+   (Added by the Armenia-first review, §11.) `vehicle_configurations.spec_region_id`
+   answers "whose regulatory figures does this data reflect" (US-spec, EU-spec); the
+   new `countries` table answers "where does Lav Auto operate commercially"
+   (Armenia first). These look similar enough — both are "which region" fields — that
+   collapsing them into one table would have been an easy, tempting simplification.
+   It would also have been wrong: Armenia has no regulatory spec of its own, and an
+   Armenian-market car is always *some other region's* spec import. Once Armenian
+   availability/pricing data exists referencing a merged table, un-merging it would
+   mean re-classifying every row by hand. Kept apart now, for the cost of one extra
+   lookup table.
 
 ## 10. Vehicle Identity Model — Deep Dive
 
@@ -369,48 +394,209 @@ the brief specifically asked to avoid redesigning vehicle identity after
 user-generated content exists on top of it, and the only way to be confident about that
 is to prove the reference pattern out before it's needed.
 
-## 11. Pricing Architecture (documented, not implemented)
+## 11. Market Availability & Pricing Architecture — Armenia-First (documented, not implemented)
 
-Not part of V1. Documented now so nothing added later has to unwind an assumption baked
-in earlier — specifically, **no table anywhere in this schema has a `price` column**,
-and none should be added without going through this shape.
+Not part of V1's built schema (with one exception, §11.1 — `countries`). Documented in
+full now, at the same level of detail as the rest of this review, because Armenia being
+the primary market is a product decision that shapes the data model even before any of
+this is built, and because getting the *separation* between these concerns right now is
+what §9 decision 7 flags as expensive to unwind later.
 
-Pricing is inherently: time-varying, multi-currency, market-scoped, and multi-source
-(manufacturer MSRP vs. an individual dealer's asking price vs. used-market value are
-three different things with three different owners and lifecycles). A single `price`
-column on any catalog table would be wrong on all four counts simultaneously.
+### 11.1 Four concepts, kept structurally separate
+
+The brief is explicit that these must not be coupled, and the schema reflects that as
+four independent layers, each pointing at the one before it but never merged into it:
+
+```
+1. Global automotive identity/specs     makes → models → generations → variants →
+                                         vehicle_configurations → spec_revisions
+                                         (V1, built — see DATABASE_SCHEMA.md)
+                                                    │
+                                                    │ referenced by, never merged into
+                                                    ▼
+2. Armenian-market availability          vehicle_availability
+                                         (variant + country + optional model_year →
+                                          official / dealer / importer / used-market)
+                                         (documented here, not built)
+                                                    │
+                                                    ▼
+3. Armenian-market pricing               price_observations
+                                         (configuration + country + price_type +
+                                          currency + amount + source + observed_at)
+                                         (documented here, not built)
+                                                    │
+                                                    ▼
+4. Individual dealer/listing inventory   dealer_listings (future `businesses` subsystem)
+                                         (one specific for-sale unit: VIN, mileage,
+                                          condition, asking price, status)
+                                         (documented here, not built)
+```
+
+**A BMW M340i xDrive is a real, fully-specified catalog entry (layer 1) whether or not
+a single example is currently for sale in Armenia (layers 2–4).** The Vehicle page in
+V1 renders entirely from layer 1 and knows nothing about the other three — this is
+already true today, not something that needs to change when layers 2–4 are built.
+Layers 2–4 are additive reads joined *onto* a vehicle page later, never a rewrite of it.
+
+### 11.2 Why availability and spec region are different axes (recap of §9 decision 7 / §10)
+
+Armenia has no regulatory spec of its own — an Armenian-market car is always some other
+region's spec import (commonly US-spec, EU-spec, or Russian-market-spec, depending on
+the model and import route). So "is this available in Armenia" is never answered by
+`vehicle_configurations.spec_region_id` — that column answers a different question
+(whose regulatory figures the numbers reflect). Availability and pricing key off
+`countries`, a table with zero relationship to `spec_regions` beyond both, coincidentally,
+being "a place."
+
+### 11.3 `countries` (built now — see `DATABASE_SCHEMA.md` §6.1)
+
+The one piece of this section that *is* real V1 schema: a small lookup table, seeded
+with a single row for Armenia (`AM`, currency `AMD`, `is_primary = true`). It exists now
+because it's cheap, stable, and gives every future availability/pricing/business table
+something real to reference, and because it makes "Armenia is the primary market" a
+concrete, checkable fact in the schema rather than a claim only in this document. Adding
+a second country later — Georgia, Russia, wherever Lav Auto expands next — is one insert
+into this table. Nothing in layer 1 (the catalog) changes, and nothing in layers 2–4
+needs restructuring: they were designed to be multi-country from the start, simply
+unpopulated for anywhere but Armenia today.
+
+### 11.4 `vehicle_availability` (documented, not built)
 
 ```sql
 -- illustrative — NOT created in V1
-create table msrp_history (
+create table vehicle_availability (
+  id             bigint generated always as identity primary key,
+  variant_id     bigint not null references variants(id),
+  model_year     smallint,             -- null = classification applies generally, not year-specific
+  country_id     bigint not null references countries(id),
+  availability_type text not null check (availability_type in (
+    'official',       -- officially offered by the manufacturer/authorized importer
+    'dealer',          -- available through local dealers
+    'importer',        -- commonly available through independent importers
+    'used_market'      -- present in the used-car market, not sold new
+  )),
+  notes          text,
+  source         text not null,
+  observed_at    date not null,
+  created_at     timestamptz not null default now(),
+  unique (variant_id, model_year, country_id, availability_type)
+);
+```
+
+- **Keyed at `variant_id` (+ optional `model_year`), not `vehicle_configuration_id`.**
+  Availability knowledge is often coarser than exact-configuration knowledge — "the
+  M340i xDrive is commonly brought in by importers" may be known and worth recording
+  before anyone has entered a specific model year's configuration row. Requiring a
+  configuration to exist first would block recording availability facts Lav Auto
+  actually has.
+- **No `not_available` row.** The absence of a row for a given `(variant, country)` is
+  read as "not currently classified as available" — deliberately not distinguished in
+  V1 from "confirmed unavailable," since that distinction is itself a data-collection
+  maturity question, not a schema one. If it matters later, add the explicit type; it's
+  one more allowed value in a check constraint, not a redesign.
+- **Multiple rows can coexist** for the same variant/country — a model can be both
+  `dealer` (new, through an authorized reseller) and `used_market` (older examples)
+  simultaneously. This is intentional, not a data-quality bug.
+- **Not populated in V1.** Doing so requires real, sourced knowledge of the Armenian
+  market that doesn't exist yet in this project — the same "do not fabricate" principle
+  that governs spec data (`DATABASE_SCHEMA.md` §5.1) applies here without exception.
+
+### 11.5 Pricing: `price_types` + `price_observations` (documented, not built)
+
+Generalizes what an earlier draft of this document called `msrp_history` into a shape
+that covers every price type the brief lists, not just MSRP:
+
+```sql
+-- illustrative — NOT created in V1
+create table price_types (
+  id    bigint generated always as identity primary key,
+  code  text not null unique,   -- 'official_msrp', 'dealer_price', 'promotional_price',
+                                  -- 'new_market_price', 'used_asking_price',
+                                  -- 'estimated_market_range'
+  name  text not null
+);
+
+create table price_observations (
   id                        bigint generated always as identity primary key,
   vehicle_configuration_id  bigint not null references vehicle_configurations(id),
-  currency_code             text not null,      -- ISO 4217, e.g. 'USD'
-  amount_minor_units        bigint not null,     -- store cents, never a float
-  effective_date            date not null,
-  source                    text,
+  country_id                bigint not null references countries(id),
+  price_type_id             bigint not null references price_types(id),
+  currency_code             text not null,        -- ISO 4217; 'AMD' for Armenian rows
+  amount_minor_units        bigint not null,       -- store cents/luma, never a float
+  amount_minor_units_high   bigint,                 -- nullable; only for range-style types
+                                                      -- (e.g. 'estimated_market_range')
+  source                    text not null,          -- required — no price row without one
+  observed_at               timestamptz not null,   -- observation/effective date
   created_at                timestamptz not null default now()
 );
 ```
 
-- **Time-series, not a single value.** MSRP changes (annual increases, mid-year
-  adjustments); every price point is its own row, so "historical MSRP" is just "don't
-  delete old rows," not a separate feature.
-- **Market comes from the join, not a duplicated column.** `vehicle_configuration_id`
-  already encodes market (§10), so an MSRP row is automatically market-scoped without
-  repeating that information.
+This maps directly onto the dimensions requested for this review:
+
+| Requested dimension | Where it lives |
+|---|---|
+| Market/country | `price_observations.country_id` |
+| Currency | `price_observations.currency_code` (AMD for Armenia) |
+| Vehicle/configuration | `price_observations.vehicle_configuration_id` |
+| Model year | Implied by the configuration (a configuration is already variant × model year, §10) — not a separate column, to avoid two sources of truth for the same fact |
+| Price type | `price_observations.price_type_id` → `price_types` |
+| Source | `price_observations.source`, **required, not nullable** |
+| Effective/observation date | `price_observations.observed_at` |
+
+Design notes:
+
+- **Time-series, not a single value, per country and price type.** MSRP changes
+  (annual increases, mid-year adjustments); every price point is its own row, so
+  "historical Armenian MSRP" is just "don't delete old rows," not a separate feature. A
+  vehicle's *current* AMD price, wherever displayed, is a query (`price_type =
+  official_msrp order by observed_at desc limit 1`), not a stored field anywhere.
+- **AMD is the primary display currency for Armenia** by convention of
+  `countries.currency_code` (§11.3), applied whenever `country_id` resolves to Armenia
+  — this is configuration, not a hard-coded assumption anywhere in application code.
 - **Currency stored as-is, never pre-converted.** `currency_code` + integer minor units
-  (cents) travel together; FX conversion, if ever needed for display, happens at query
-  time against a rates source, not by baking a converted value into storage (rates
-  change; a stored conversion would silently go stale).
-- **Dealer pricing and used-market pricing are separate concerns, not variations of
-  MSRP.** Dealer pricing belongs to the future `businesses` subsystem (§8) —
-  illustratively a `dealer_listings` table (`dealer_id`, `vehicle_configuration_id`,
-  `price`, `condition`, `mileage`, `listed_at`) with its own RLS (a dealer can only
-  write their own listings) and its own churn rate (listings expire; MSRP doesn't).
-  Used-market pricing is likely sourced from a third-party valuation feed later — a
-  `market_value_estimates` table or an external API call, not something computed from
-  MSRP internally.
+  travel together; if Lav Auto ever needs to show a US-sourced MSRP figure converted to
+  AMD for context, that conversion happens at query/display time against a rates
+  source, never baked into a stored row (rates change; a stored conversion goes stale
+  silently). In practice, once this ships, Armenian rows should come from Armenian
+  sources (dealer quotes, market observation) rather than a converted foreign MSRP —
+  converting a US or EU MSRP is not the same number as what a car actually costs to buy
+  in Armenia (duties, import costs, local demand), and doing so would violate the "do
+  not fabricate" principle just as surely as inventing a spec value would.
+- **`source` is required, not optional, by design.** The brief states "all production
+  pricing must eventually have a source and timestamp" — modeled as a `not null`
+  constraint, not a convention someone can forget to follow. `observed_at` is `not
+  null` for the same reason.
+- **Dealer/promotional/used-asking prices are still `price_observations` rows when
+  they're aggregate market signals** (e.g. "typical dealer price for this configuration
+  in Armenia, as observed"), but an **individual dealer's live listing for one specific
+  physical car is not** — that's layer 4 (§11.6), a fundamentally different kind of
+  record (has a status, expires, belongs to one business).
+
+### 11.6 Dealer/listing inventory (layer 4, future `businesses` subsystem)
+
+```sql
+-- illustrative — NOT created in V1, depends on a future `businesses` table
+create table dealer_listings (
+  id                        bigint generated always as identity primary key,
+  business_id               bigint not null references businesses(id),
+  vehicle_configuration_id  bigint references vehicle_configurations(id),  -- nullable: see §10.4's fallback pattern, same idea applies to inventory
+  country_id                bigint not null references countries(id),
+  condition                 text not null check (condition in ('new', 'used')),
+  vin                       text,
+  mileage_km                integer,
+  price_currency_code       text not null,
+  price_amount_minor_units  bigint not null,
+  status                    text not null check (status in ('available', 'pending', 'sold', 'expired')),
+  listed_at                 timestamptz not null,
+  updated_at                timestamptz not null default now()
+);
+```
+
+Kept separate from `price_observations` because listings have a lifecycle
+(`available → pending → sold`/`expired`) and single ownership (one business writes its
+own rows, enforced by RLS once this exists) that aggregate price observations don't —
+merging them would force every aggregate market-price row to pretend it belongs to a
+business, or every listing to pretend it's just a data point.
 
 ## 12. What This Document Deliberately Does Not Cover
 
@@ -419,3 +605,9 @@ create table msrp_history (
 - The production automotive data source/API — explicitly deferred per the brief ("will
   be selected separately").
 - Any of the long-term feature systems in §8 beyond how the schema stays open to them.
+- Real Armenian availability or pricing data, or how/where it will be sourced — §11
+  designs the shape only; sourcing real, verifiable Armenian market data is a future,
+  separate effort, not something this review fabricates a starting dataset for.
+- Any Armenian dealer/mechanic/detailer/tuner/parts-business product feature — out of
+  scope for the same reason the rest of the long-term feature list is (§8); §11 only
+  ensures the vehicle/market model won't need restructuring when that work starts.
