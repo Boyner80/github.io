@@ -138,7 +138,7 @@ manufacturer/model/generation/vehicle/compare pages in all three locales.
 
 - Environment variable and secrets review (service role key never reachable from client
   bundles — verify via build output inspection, not just code review).
-- Confirm RLS policies match `DATABASE_SCHEMA.md` §9 exactly (read-only, no anon
+- Confirm RLS policies match `DATABASE_SCHEMA.md` §10 exactly (read-only, no anon
   write path) directly against the deployed database, not just the migration files.
 - Deploy to Vercel (production project), verify ISR revalidation behavior in production.
 - Smoke test: every page type, all three locales, mobile + desktop viewport, search,

@@ -356,13 +356,16 @@ create table spec_attribute_values (
   id                       bigint generated always as identity primary key,
   spec_revision_id         bigint not null references spec_revisions(id) on delete cascade,
   attribute_definition_id  bigint not null references spec_attribute_definitions(id) on delete restrict,
+  data_type                text not null check (data_type in ('boolean', 'number', 'text')),  -- denormalized copy of spec_attribute_definitions.data_type, set by the writer — see note below
   value_boolean            boolean,
   value_number             numeric,
   value_text               text,
   created_at               timestamptz not null default now(),
   unique (spec_revision_id, attribute_definition_id),
   check (
-    (data_type_is_boolean and value_boolean is not null) or true -- see note below
+    (data_type = 'boolean' and value_boolean is not null and value_number is null and value_text is null) or
+    (data_type = 'number' and value_number is not null and value_boolean is null and value_text is null) or
+    (data_type = 'text' and value_text is not null and value_boolean is null and value_number is null)
   )
 );
 ```
@@ -374,12 +377,15 @@ Trade-offs, and why this shape and not a plain `key text, value text` EAV table:
   decision into application code and makes it easy to write `"true"` in one row and
   `"1"` in another for the same boolean attribute. Splitting by `data_type` keeps a
   guarantee at the database boundary, at the cost of a few always-null columns per row
-  — an acceptable trade for correctness on data that may eventually feed comparison
-  UI. (The `check` constraint above is illustrative — enforcing "the right column is
-  populated for this attribute's `data_type`" in Postgres cleanly needs either a
-  trigger or is more practically left to a Zod schema in `lib/data/*` at the
-  application boundary; note this explicitly as an implementation detail to settle in
-  Phase 1, not a reason to weaken the table shape.)
+  — an acceptable trade for correctness on data that may eventually feed comparison UI.
+- **`data_type` is denormalized onto this table** (copied from
+  `spec_attribute_definitions.data_type` by whatever writes the row — the repository
+  layer, never the client) specifically so the `check` constraint above can enforce
+  "exactly the right value column is populated" without a subquery — Postgres `check`
+  constraints can't reference other tables, and a cross-table trigger was rejected as
+  more machinery than a rarely-written long-tail table justifies. The small duplication
+  cost buys a real, enforced-at-the-database-boundary guarantee instead of an
+  application-only convention.
 - **No migration to add an attribute.** Adding "adaptive cruise control" is an `insert`
   into `spec_attribute_definitions`, not a `create table`/`alter table`. This is the
   entire point of the mechanism.
@@ -505,7 +511,7 @@ create table vehicle_images (
   id                        bigint generated always as identity primary key,
   variant_id                bigint not null references variants(id) on delete cascade,
   vehicle_configuration_id  bigint references vehicle_configurations(id) on delete set null,  -- optional: year/market-specific photo
-  provider                  text not null,     -- 'seed_local' | 'external_api' | 'supabase_storage'
+  provider                  text not null check (provider in ('seed_local', 'external_api', 'supabase_storage')),
   external_ref              text,               -- provider-specific ID/key, opaque to the app
   url                       text not null,
   position                   smallint not null default 0,
@@ -521,7 +527,91 @@ create index on vehicle_images (vehicle_configuration_id);
 identity fields via an i18n template, not stored per image (avoids a translation table
 for what's a mechanically-derivable string).
 
-## 8. Indexes worth calling out
+## 8. External source provenance — provider-independent by construction
+
+Added for the provider-independence requirement: Lav Auto must not depend structurally
+on any one automotive data API. During development this means NHTSA vPIC and/or
+manually verified data; later, a more comprehensive commercial provider; separately,
+future Armenian-market sources (marketplace/dealer feeds). None of that should ever
+require changing a canonical ID, a URL, or a future FK from Garage/reviews/clubs.
+
+**This is already mostly true by construction**, not a new mechanism bolted on: every
+table in §1–§7 uses `bigint generated always as identity` primary keys that Lav Auto
+generates itself, and every `slug` is assigned once at data-entry time — never derived
+from or equal to a provider's ID (`ARCHITECTURE.md` §9 decision 1). No catalog table has
+an `nhtsa_id` or similar column, and none should ever get one. What was missing was a
+place to *record* where a given canonical row's data came from, without that record
+becoming part of the row's identity. That's this section.
+
+```sql
+create table data_sources (
+  id            bigint generated always as identity primary key,
+  code          text not null unique,   -- 'nhtsa_vpic', 'manual_verified', 'lav_auto_editorial', ...
+  name          text not null,
+  kind          text not null check (kind in (
+    'global_catalog_api',    -- e.g. NHTSA vPIC today, a comprehensive provider later
+    'manual_verified',        -- staff-entered, checked against a primary source (brochure, spec sheet)
+    'editorial',               -- staff-entered, not yet independently verified
+    'armenian_market_feed'     -- future: marketplace/dealer feeds (not built yet — see ARCHITECTURE.md §11)
+  )),
+  homepage_url  text,
+  created_at    timestamptz not null default now()
+);
+
+create table external_source_mappings (
+  id              bigint generated always as identity primary key,
+  data_source_id  bigint not null references data_sources(id) on delete restrict,
+  entity_type     text not null check (entity_type in (
+    'make', 'model', 'generation', 'variant', 'vehicle_configuration', 'engine', 'spec_revision'
+  )),
+  entity_id       bigint not null,  -- polymorphic — see note below; no FK constraint
+  external_id     text not null,     -- the provider's identifier for this record
+  external_url    text,               -- optional deep link back to the source record
+  fetched_at      timestamptz,        -- when this data was last fetched/observed from the source
+  raw_payload     jsonb,              -- optional: the original provider response, for audit/reprocessing
+  created_at      timestamptz not null default now(),
+  unique (data_source_id, entity_type, external_id),
+  unique (data_source_id, entity_type, entity_id)
+);
+create index on external_source_mappings (entity_type, entity_id);
+```
+
+Design notes:
+
+- **`entity_id` is intentionally not a foreign key.** It's polymorphic — the table it
+  points into depends on `entity_type` — which Postgres can't express as a single FK.
+  This is the one deliberate referential-integrity gap in the schema, accepted because
+  this table is low-traffic (written only during ingestion/re-sync, read mainly for
+  admin/debugging "where did this come from" lookups) and because the alternative — a
+  separate `*_external_ids` table per entity type — would mean five near-identical
+  tables for a genuinely rare need. `entity_type` is restricted to a fixed, known set
+  via `check`, and the sole writer (the ingestion layer, §"Ingestion/adapter layer" in
+  `ARCHITECTURE.md` §12) is responsible for validating `entity_id` exists before
+  insert. No client or public code path writes to this table (RLS below is read-only,
+  same as every other catalog table).
+- **Two unique constraints, two different guarantees.** `(data_source_id, entity_type,
+  external_id)` prevents re-ingesting the same provider record as a second canonical
+  row. `(data_source_id, entity_type, entity_id)` keeps one canonical entity mapped to
+  at most one external ID *per source* (the expected case — a make has one NHTSA make
+  ID) without limiting how many *different sources* it can be mapped to.
+- **`spec_revisions.source` (§5.1, free text) and this table are different tools.** A
+  spec revision's `source` field is a short human-readable citation for cases with no
+  machine-readable provider involved at all — "manually verified against manufacturer
+  brochure, 2026." `external_source_mappings` is for provider *records with real IDs* —
+  NHTSA's, a future comprehensive provider's, an Armenian feed's. A spec revision
+  sourced from NHTSA would reasonably have both: `source = 'NHTSA vPIC'` for a
+  quick human-readable read, and a matching `external_source_mappings` row
+  (`entity_type = 'spec_revision'`) for the structured, queryable crosswalk with the
+  actual VIN pattern/decode ID and `raw_payload`.
+- **Not shown in the §1 ER diagram.** A polymorphic table doesn't draw cleanly into a
+  relational ERD without implying FKs that don't exist; it's documented here in prose
+  and SQL instead.
+- **Read-only, like everything else.** `data_sources` and `external_source_mappings`
+  get the same public-read RLS treatment as the rest of the catalog (§10) — provenance
+  is not sensitive, and some Lav Auto pages may eventually choose to surface "data
+  source: NHTSA vPIC" as a trust signal (a UI decision, not required in V1).
+
+## 9. Indexes worth calling out
 
 ```sql
 create index on models (make_id);
@@ -541,7 +631,7 @@ function for V1 — sufficient for a catalog this size without introducing a ded
 search service (Algolia/Elasticsearch) prematurely. Revisit if/when the catalog and
 query volume outgrow it.
 
-## 9. Row Level Security
+## 10. Row Level Security
 
 ```sql
 alter table makes enable row level security;
@@ -569,15 +659,24 @@ alter table transmissions enable row level security;
 alter table drivetrains enable row level security;
 alter table spec_regions enable row level security;
 alter table countries enable row level security;
+alter table data_sources enable row level security;
+alter table external_source_mappings enable row level security;
 
 -- one read-only policy per table, e.g.:
-create policy "public read" on makes for select using (true);
+create policy "public read" on makes for select to anon, authenticated using (true);
 -- ...repeated per table above. No insert/update/delete policy exists for the
 -- anon/authenticated roles in V1 — all writes happen via migrations/seed scripts
 -- using the service role, which bypasses RLS.
+
+-- Supabase's Data API roles also need an explicit table-level GRANT alongside the
+-- RLS policy — new projects do not auto-expose new tables to anon/authenticated
+-- without one. Discovered and applied during Phase 1; see the initial migration for
+-- the actual per-table loop.
+grant usage on schema public to anon, authenticated;
+grant select on makes to anon, authenticated; -- ...repeated per table above
 ```
 
-## 10. What's intentionally NOT in this schema yet
+## 11. What's intentionally NOT in this schema yet
 
 - No `users`, `garage_vehicles`, `posts`, `reviews`, `clubs`, `businesses`, or any table
   referencing `auth.users` — see `ARCHITECTURE.md` §8 for how they attach later,
@@ -601,3 +700,8 @@ create policy "public read" on makes for select using (true);
 - No full CMS-style `translations` table — enum values and long-tail attribute labels
   are translated via static i18n keys (see `LOCALIZATION.md`); this is revisited only
   if/when Lav Auto needs editor-authored per-locale long-form content.
+- **No NHTSA (or other provider) bulk import.** `data_sources` and
+  `external_source_mappings` (§8) exist so a future import has somewhere to record
+  provenance, but Phase 1 seeds only a small, hand-entered development dataset — see
+  `ARCHITECTURE.md` §12 for the ingestion/adapter layer this will eventually run
+  through, and the implementation plan for when bulk import is actually scheduled.

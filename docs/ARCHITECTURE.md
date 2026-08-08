@@ -501,9 +501,11 @@ four independent layers, each pointing at the one before it but never merged int
                                          (documented here, not built)
                                                     │
                                                     ▼
-4. Individual dealer/listing inventory   dealer_listings (future `businesses` subsystem)
+4. Individual dealer/marketplace listings market_listings (§11.6 — dealer inventory
+                                         and future marketplace observations, e.g.
+                                         List.am/Auto.am, not built in Phase 1)
                                          (one specific for-sale unit: VIN, mileage,
-                                          condition, asking price, status)
+                                          seller, location, asking price, status)
                                          (documented here, not built)
 ```
 
@@ -647,33 +649,153 @@ Design notes:
   physical car is not** — that's layer 4 (§11.6), a fundamentally different kind of
   record (has a status, expires, belongs to one business).
 
-### 11.6 Dealer/listing inventory (layer 4, future `businesses` subsystem)
+### 11.6 Market listings (layer 4) — dealer inventory *and* future marketplace observations
+
+Broadened from an earlier draft that only covered dealer inventory: the brief's
+Armenian-market layer also anticipates individual marketplace listings (e.g. List.am,
+Auto.am — **not built in Phase 1, explicitly deferred**) alongside registered-dealer
+inventory. Both are "one specific car someone is asking money for, right now," so they
+share a shape; a listing without a Lav Auto business behind it (a marketplace
+observation) simply has `business_id = null`.
 
 ```sql
--- illustrative — NOT created in V1, depends on a future `businesses` table
-create table dealer_listings (
+-- illustrative — NOT created in V1. Dealer-sourced rows depend on a future
+-- `businesses` table; marketplace-sourced rows depend only on `data_sources` (§8),
+-- which already exists.
+create table market_listings (
   id                        bigint generated always as identity primary key,
-  business_id               bigint not null references businesses(id),
+  business_id               bigint references businesses(id),  -- null for a marketplace observation not tied to a registered dealer
+  data_source_id            bigint references data_sources(id),  -- e.g. a future 'list_am'/'auto_am' row (§8); null for a dealer's own listing
   vehicle_configuration_id  bigint references vehicle_configurations(id),  -- nullable: see §10.4's fallback pattern, same idea applies to inventory
   country_id                bigint not null references countries(id),
   condition                 text not null check (condition in ('new', 'used')),
   vin                       text,
   mileage_km                integer,
+  seller_type               text not null check (seller_type in ('dealer', 'private', 'unknown')),
+  seller_name               text,
+  location_text             text,               -- free-text city/region; not modeled as a full geo table in V1
+  listing_url               text,
   price_currency_code       text not null,
   price_amount_minor_units  bigint not null,
   status                    text not null check (status in ('available', 'pending', 'sold', 'expired')),
   listed_at                 timestamptz not null,
-  updated_at                timestamptz not null default now()
+  observed_at               timestamptz not null default now(),  -- last time this row was confirmed still accurate
+  updated_at                timestamptz not null default now(),
+  check (business_id is not null or data_source_id is not null)
 );
 ```
 
-Kept separate from `price_observations` because listings have a lifecycle
-(`available → pending → sold`/`expired`) and single ownership (one business writes its
-own rows, enforced by RLS once this exists) that aggregate price observations don't —
-merging them would force every aggregate market-price row to pretend it belongs to a
-business, or every listing to pretend it's just a data point.
+This is exactly the set of fields the brief calls out as Armenian-market observations
+that must stay out of the canonical technical specification tables — asking price,
+mileage, listing date, seller, location, availability — all live here, all pointing
+*into* the catalog via `vehicle_configuration_id`, never the other way around.
 
-## 12. What This Document Deliberately Does Not Cover
+Kept separate from `price_observations` because listings have a lifecycle
+(`available → pending → sold`/`expired`) and a concrete origin (one business's own
+inventory, or one external marketplace source) that aggregate price observations
+don't — merging them would force every aggregate market-price row to pretend it
+belongs to a business or source, or every listing to pretend it's just a data point.
+RLS, once this exists, differs by origin too: a dealer can write only their own
+`business_id` rows; marketplace-sourced rows are written only by a future ingestion
+job using the service role, same pattern as the catalog itself (§12).
+
+## 12. Provider-Independent Ingestion Architecture
+
+Lav Auto must not depend structurally on any single automotive data API. During
+development that means NHTSA vPIC and/or manually verified data; later, a more
+comprehensive commercial provider; separately, future Armenian-market sources
+(marketplace/dealer feeds — not built in Phase 1). Switching or adding a provider must
+never require changing a canonical ID, a vehicle URL, or a future FK from
+Garage/reviews/clubs/posts.
+
+### 12.1 What already guarantees this
+
+Most of the work was already done by decisions made earlier in this document, not by a
+new mechanism:
+
+- Every catalog table's primary key is `bigint generated always as identity` — Lav
+  Auto's own sequence, never a provider's ID (`DATABASE_SCHEMA.md` §2–§7).
+- Every `slug` is assigned once, by Lav Auto, at data-entry time, and is never
+  auto-regenerated from a provider's naming (§9 decision 1). A provider renaming or
+  restructuring its own catalog has no effect on a Lav Auto URL.
+- No catalog table has an `nhtsa_id`, `provider_ref`, or similar column mixed into its
+  identity columns. Provider IDs live in exactly one place: `external_source_mappings`
+  (`DATABASE_SCHEMA.md` §8), a side table that records provenance without participating
+  in identity.
+
+The one thing that needed adding was that mapping table, plus the discipline described
+below for how data crosses from "provider's format" to "Lav Auto's canonical rows."
+
+### 12.2 The ingestion/adapter layer
+
+```
+Provider response (NHTSA JSON, a future provider's format, ...)
+            │
+            ▼
+   lib/ingestion/adapters/<source>.ts      ← the ONLY code that knows the
+   (implements CatalogIngestionAdapter)       provider's response shape
+            │  produces canonical insert/update inputs
+            │  (Make, Model, Generation, Variant, VehicleConfiguration, SpecInput, ...)
+            ▼
+   lib/data/*  (the same repository layer the app reads through)
+            │  writes canonical rows + one external_source_mappings row per entity
+            ▼
+        PostgreSQL (canonical schema, DATABASE_SCHEMA.md)
+            │
+            ▼
+   UI components (Vehicle page, comparison, etc.) — read lib/data/*, never see
+   a provider's response shape at all
+```
+
+- **One adapter module per external source**, each implementing a shared
+  `CatalogIngestionAdapter` interface (`lib/ingestion/types.ts`) that returns data
+  already reshaped into Lav Auto's own input types — a make, a model, a spec value —
+  never the provider's raw field names or structure. This is what makes "UI components
+  must never directly depend on a provider's response format" true: nothing outside the
+  one adapter file ever sees NHTSA's (or anyone else's) JSON shape.
+- **Adapters write through `lib/data/*`, the same repository layer the app reads
+  through** — never direct SQL, never a separate ingestion database connection. There
+  is exactly one code path for "how a row gets into the catalog," whether it was typed
+  by a developer in a seed script or produced by a future adapter.
+- **Every canonical row an adapter creates or updates gets a matching
+  `external_source_mappings` row** (`entity_type`, the canonical `entity_id`,
+  `external_id`, `fetched_at`, optionally `raw_payload`). Re-running an adapter looks up
+  the existing mapping first (via the `(data_source_id, entity_type, external_id)`
+  unique constraint) to decide update-vs-insert, rather than guessing by name/slug
+  matching — name matching across providers is exactly the kind of fragile heuristic
+  this layer exists to avoid.
+- **Not a microservice, not a queue, not a scheduler.** An adapter is a plain
+  TypeScript module, run via a script (`scripts/ingest/<source>.ts`, invoked manually
+  or — later — by a scheduled job) inside the same Next.js codebase. There is no
+  separate ingestion service, no message broker, no independent deployment. This is
+  the "simple internal ingestion/adapter architecture" the requirement asks for; a
+  microservice would be solving a scale problem Lav Auto doesn't have yet.
+
+### 12.3 What Phase 1 actually builds here, and what it doesn't
+
+- **Builds:** the `data_sources` / `external_source_mappings` tables (real V1 schema,
+  `DATABASE_SCHEMA.md` §8) and the `CatalogIngestionAdapter` interface/types in
+  `lib/ingestion/types.ts` (a contract for future adapters to implement against).
+- **Does not build:** an actual NHTSA vPIC adapter, or any bulk import. Phase 1's
+  dataset is a small, hand-entered development fixture (`docs/IMPLEMENTATION_PLAN.md`),
+  inserted directly via seed SQL and tagged with a `manual_verified`/`editorial`
+  `data_sources` row — itself a valid, if trivial, "source" in the same provenance
+  system a future NHTSA adapter will use. Writing a real adapter is deferred until
+  bulk/automated ingestion is actually scheduled, so the interface isn't designed
+  against a hypothetical shape before a real one is known.
+
+### 12.4 Replacing or adding a provider later
+
+Because nothing above ties a canonical ID, URL, or future FK to a provider: adding a
+comprehensive commercial provider alongside (or instead of) NHTSA is a new adapter
+module plus a new `data_sources` row. Re-pointing which source is treated as
+authoritative for a given field is an ingestion-layer/editorial decision (e.g., "prefer
+`is_verified = true` rows over freshly-imported ones," already expressible via
+`spec_revisions.is_verified`), not a schema or URL change. The same is true for the
+future Armenian-market sources — a `list_am` or `auto_am` `data_sources` row and an
+adapter producing `market_listings` rows (§11.6) — which don't touch the catalog at all.
+
+## 13. What This Document Deliberately Does Not Cover
 
 - Any UI visual design/component library choice beyond Tailwind — that's implementation
   detail, not architecture.
