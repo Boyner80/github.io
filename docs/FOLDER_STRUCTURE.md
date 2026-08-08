@@ -22,8 +22,13 @@ lav-auto/
 │  │  │        └─ [generation]/
 │  │  │           ├─ page.tsx       # Generation page: /cars/bmw/3-series/g20
 │  │  │           └─ [variant]/
-│  │  │              ├─ page.tsx    # Vehicle page: /cars/bmw/3-series/g20/m340i-xdrive
-│  │  │              └─ loading.tsx
+│  │  │              ├─ page.tsx    # Variant overview: /cars/bmw/3-series/g20/m340i-xdrive
+│  │  │              │                 (lists model years, features current one — see ARCHITECTURE.md §7.1)
+│  │  │              ├─ loading.tsx
+│  │  │              └─ [year]/
+│  │  │                 ├─ page.tsx # Vehicle page: /cars/bmw/3-series/g20/m340i-xdrive/2025
+│  │  │                 │             (resolves a vehicle_configurations row)
+│  │  │                 └─ loading.tsx
 │  │  └─ compare/
 │  │     ├─ page.tsx                # /compare — reads selection from searchParams
 │  │     └─ loading.tsx
@@ -60,7 +65,8 @@ lav-auto/
 │  │  ├─ models.ts
 │  │  ├─ generations.ts
 │  │  ├─ variants.ts
-│  │  ├─ specs.ts                   # fetch + shape grouped specs for a variant
+│  │  ├─ configurations.ts          # resolve (variant, year[, market]) -> vehicle_configuration + specs
+│  │  ├─ specs.ts                   # fetch + shape grouped specs for a configuration
 │  │  ├─ images.ts                  # provider-agnostic image resolution
 │  │  ├─ search.ts
 │  │  └─ types.ts                   # domain types returned by the repository layer

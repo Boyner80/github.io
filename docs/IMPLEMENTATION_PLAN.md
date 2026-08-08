@@ -25,19 +25,24 @@ Supabase client connects.
 - Write the migrations for every table in `DATABASE_SCHEMA.md` (hierarchy, lookups,
   spec category tables, images), with RLS policies from the start.
 - Write `supabase/seed/dev-seed.sql`: a small, clearly-labeled development dataset —
-  enough to exercise every relationship (at minimum: 2 makes, 2–3 models, a couple of
-  generations each, 2–4 variants per generation, at least one variant with two spec
-  revisions to prove the effective-dating works, a couple of shared engines reused
-  across variants). No fabricated numbers presented as real — seed comment header states
-  this is placeholder/test data.
+  enough to exercise every relationship, specifically including the scenario from
+  `ARCHITECTURE.md` §10.3: at minimum one variant with (a) multiple model years sharing
+  one spec revision (proves de-duplication), (b) a year where the spec revision changes
+  (proves facelift/mid-cycle handling), and (c) two markets for the same model year
+  with different spec revisions (proves market differentiation) — plus a couple of
+  shared engines reused across configurations. No fabricated numbers presented as real
+  — seed comment header states this is placeholder/test data.
 - Generate TypeScript types from the schema (`supabase gen types typescript`).
 - Build `lib/data/*` repository functions (`getMakeBySlug`, `listModelsForMake`,
-  `getGenerationBySlug`, `getVariantWithSpecs`, etc.), fully typed, with no query logic
-  living anywhere outside this layer.
-- Zod schemas for anything crossing a boundary (route/search params).
+  `getGenerationBySlug`, `listConfigurationsForVariant`,
+  `getConfiguration(variantSlug, year, market?)`, etc.), fully typed, with no query
+  logic living anywhere outside this layer.
+- Zod schemas for anything crossing a boundary (route/search params, including the
+  `year` route param and the `v=slug.year` compare param format).
 
-**Exit criteria:** repository functions can fetch a full vehicle (variant + all spec
-categories) in a typed shape, verified by a small script/test — before any UI exists.
+**Exit criteria:** repository functions can fetch a full vehicle configuration (variant
++ year + all spec categories) in a typed shape, verified by a small script/test —
+before any UI exists.
 
 ## Phase 2 — Core Browsing Pages
 
@@ -45,9 +50,15 @@ categories) in a typed shape, verified by a small script/test — before any UI 
   yet, loading/error states.
 - Model page (`/cars/[make]/[model]`): list generations.
 - Generation page (`/cars/[make]/[model]/[generation]`): list variants.
-- Vehicle page (`/cars/[make]/[model]/[generation]/[variant]`): identity block, image,
-  generated summary, specs grouped by category (`SpecCategoryGroup`/`SpecTable`),
-  "Add to Comparison" button (UI only — wired to the store in Phase 4).
+- Variant overview page (`/cars/[make]/[model]/[generation]/[variant]`): lists
+  available model years for the trim, features the current/latest one — see
+  `ARCHITECTURE.md` §7.1.
+- Vehicle page (`/cars/[make]/[model]/[generation]/[variant]/[year]`): identity block,
+  image, generated summary, specs grouped by category
+  (`SpecCategoryGroup`/`SpecTable`), "Add to Comparison" button (UI only — wired to the
+  store in Phase 4). Resolves a `vehicle_configurations` row; renders a
+  "specs carried over from the previous model year" note when the resolved spec
+  revision is shared with the prior year's configuration.
 - `generateMetadata` + JSON-LD on all of the above; `generateStaticParams` + ISR.
 - Real translation keys for every string introduced (no more scaffolding placeholders).
 - Home page: static/curated "Popular Manufacturers" and "Popular Comparisons" sections
@@ -74,8 +85,9 @@ navigates to the right catalog page.
   `COMPARISON_STATE.md`.
 - `CompareTray` (floating, site-wide, mobile-collapsing bottom bar).
 - Wire `AddToCompareButton` on manufacturer/model/generation/vehicle pages to the store.
-- `/compare` page: reads `searchParams`, resolves variants via the repository layer,
-  renders `CompareTable` grouped by spec category with difference highlighting.
+- `/compare` page: reads `searchParams`, resolves each `v=slug.year` entry to a
+  vehicle configuration via the repository layer, renders `CompareTable` grouped by
+  spec category with difference highlighting.
 - Mobile layout: swipeable per-vehicle cards instead of a shrinking grid.
 - Empty state (0–1 vehicles selected) and partial-failure handling (invalid/missing
   slug in the URL).

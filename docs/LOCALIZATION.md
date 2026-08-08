@@ -52,7 +52,11 @@ These are proper nouns/technical identifiers, exactly as called out in the brief
   `DATABASE_SCHEMA.md` §4) that store a stable `slug`/`code`, e.g. `body_types.slug =
   'sedan'`. The UI looks up the translated label by key:
   `t('specs.bodyType.' + bodyType.slug)`. The database is never the source of the
-  *displayed* label for these — only of the stable key used to find it.
+  *displayed* label for these — only of the stable key used to find it. The same
+  pattern applies to long-tail spec attributes added via `spec_attribute_definitions`
+  (see `DATABASE_SCHEMA.md` §5.4): the `key` column drives
+  `t('specs.attribute.' + key)`, so adding an uncommon spec later means one DB row plus
+  one translation-key addition per locale, never a translated DB column.
 - Generated vehicle summaries (see `ARCHITECTURE.md` §2 risk #5): an ICU message
   template per locale, interpolated with untranslated identity fields and translated
   enum labels, e.g.:

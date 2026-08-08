@@ -13,22 +13,33 @@
 
 Two cooperating pieces of state, kept deliberately separate:
 
-1. **The `/compare` page's source of truth is the URL.** Selected variants are encoded
-   as repeated query params: `/compare?v=bmw.3-series.g20.m340i-xdrive&v=audi.a4.b9.s4`.
-   Using the slug path (not a numeric ID) keeps the URL human-readable and stable
-   against ID changes. This makes `/compare` a normal server-renderable page:
-   `page.tsx` reads `searchParams`, resolves each `v` to a variant via the repository
-   layer, and renders the comparison — no client-only rendering required for the core
-   view, and the URL alone is enough to reproduce a comparison (link-shareable, and
-   revisitable after a refresh).
+1. **The `/compare` page's source of truth is the URL.** Selected vehicles are encoded
+   as repeated query params, each identifying a specific **vehicle configuration**
+   (variant + model year — see `ARCHITECTURE.md` §10), not just a variant:
+   `/compare?v=bmw.3-series.g20.m340i-xdrive.2024&v=audi.a4.b9.s4.2024`. This matters
+   because specs can differ meaningfully by model year (facelifts, power bumps) — a
+   comparison that could only pin a trim, not a year, could silently mix a 2022 spec
+   sheet against a 2024 one and mislead the user. Using the slug-plus-year path (not a
+   numeric ID) keeps the URL human-readable and stable against ID changes. This makes
+   `/compare` a normal server-renderable page: `page.tsx` reads `searchParams`,
+   resolves each `v` to a configuration via the repository layer, and renders the
+   comparison — no client-only rendering required for the core view, and the URL alone
+   is enough to reproduce a comparison (link-shareable, and revisitable after a
+   refresh). If a `v` value omits the year (e.g. a link built from an older UI state),
+   it resolves to that variant's current/latest configuration rather than erroring.
 
 2. **A lightweight client store (Zustand + `persist` → localStorage) tracks "vehicles
    currently queued for comparison"** so an "Add to Comparison" button on a manufacturer,
-   model, generation, or vehicle page can build up a selection *before* the user
-   navigates to `/compare`, and a floating `CompareTray` component (visible site-wide)
-   shows the current count/preview. Navigating to "Compare" writes the store's contents
-   into the URL query params described above — at that point the URL takes over as the
-   source of truth for that page load.
+   model, generation, variant, or vehicle page can build up a selection *before* the
+   user navigates to `/compare`, and a floating `CompareTray` component (visible
+   site-wide) shows the current count/preview. Navigating to "Compare" writes the
+   store's contents into the URL query params described above — at that point the URL
+   takes over as the source of truth for that page load. The store always holds a
+   configuration reference, not a bare variant: "Add to Comparison" on a page that
+   hasn't pinned a specific year (e.g. the generation page's variant list) queues that
+   variant's current/latest configuration, exactly mirroring how the year-less variant
+   URL resolves (`ARCHITECTURE.md` §7.1) — the two never disagree about what "the M340i
+   xDrive" defaults to.
 
 ```
 Any catalog page
@@ -44,7 +55,7 @@ Any catalog page
         /compare page.tsx reads searchParams (server component)
                           │
                           ▼
-        resolves each `v` via lib/data/variants.ts, renders CompareTable
+        resolves each `v` via lib/data/configurations.ts, renders CompareTable
 ```
 
 ## Why not just the store, or just the URL?
