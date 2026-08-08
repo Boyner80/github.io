@@ -40,14 +40,26 @@ Supabase client connects.
 - Generate TypeScript types from the schema (`supabase gen types typescript`).
 - Build `lib/data/*` repository functions (`getMakeBySlug`, `listModelsForMake`,
   `getGenerationBySlug`, `listConfigurationsForVariant`,
-  `getConfiguration(variantSlug, year, specRegion?)`, etc.), fully typed, with no query
-  logic living anywhere outside this layer.
+  `resolveConfiguration(variantSlug, year, specRegion?)`, etc.), fully typed, with no
+  query logic living anywhere outside this layer. `resolveConfiguration` implements the
+  default resolution algorithm from `ARCHITECTURE.md` §10.5 (prefer a verified
+  configuration matching the user's market context, Armenia by default; fall back to
+  `GLOBAL`) and returns the resolved `specRegionCode`/`isVerified` alongside the
+  configuration — never just the configuration, since the caller must always be able to
+  render which region the data came from.
 - Zod schemas for anything crossing a boundary (route/search params, including the
   `year` route param and the `v=slug.year` compare param format).
+- Seed `spec_regions` with `GLOBAL` plus the codes exercised by the dev seed dataset
+  above (e.g. `US`, `EU`). Do **not** seed a verified `AM` `vehicle_configurations` row
+  in the shared dev seed — a "verified" but fabricated Armenia row is exactly the kind
+  of mislabeling `ARCHITECTURE.md` §10.5 exists to prevent, even in a dev database.
+  Exercise the AM-preferred branch of `resolveConfiguration` with an isolated test
+  fixture instead (inserted and rolled back within a test), not shared seed data.
 
 **Exit criteria:** repository functions can fetch a full vehicle configuration (variant
-+ year + all spec categories) in a typed shape, verified by a small script/test —
-before any UI exists.
++ year + all spec categories) in a typed shape, with `resolveConfiguration`'s
+GLOBAL-fallback path verified against the seed data and its AM-preferred path verified
+against an isolated test fixture — before any UI exists.
 
 ## Phase 2 — Core Browsing Pages
 
@@ -61,7 +73,10 @@ before any UI exists.
 - Vehicle page (`/cars/[make]/[model]/[generation]/[variant]/[year]`): identity block,
   image, generated summary, specs grouped by category
   (`SpecCategoryGroup`/`SpecTable`), "Add to Comparison" button (UI only — wired to the
-  store in Phase 4). Resolves a `vehicle_configurations` row; renders a
+  store in Phase 4). Resolves via `resolveConfiguration` (§10.5); renders a mandatory
+  `SpecDataSourceNotice` next to the spec table showing which region the displayed data
+  resolved to (`specs.dataSource.am` / `specs.dataSource.global`, see
+  `LOCALIZATION.md`) — never omitted, never hardcoded to "Armenia." Also renders a
   "specs carried over from the previous model year" note when the resolved spec
   revision is shared with the prior year's configuration.
 - `generateMetadata` + JSON-LD on all of the above; `generateStaticParams` + ISR.

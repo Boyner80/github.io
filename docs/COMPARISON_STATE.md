@@ -27,6 +27,12 @@ Two cooperating pieces of state, kept deliberately separate:
    is enough to reproduce a comparison (link-shareable, and revisitable after a
    refresh). If a `v` value omits the year (e.g. a link built from an older UI state),
    it resolves to that variant's current/latest configuration rather than erroring.
+   Each `v` resolves through the same default spec-region resolution algorithm as the
+   Vehicle page (`ARCHITECTURE.md` §10.5 — prefer a verified configuration matching the
+   user's market context, Armenia by default, else fall back to `GLOBAL`), and
+   `CompareTable` renders the resolved region next to each vehicle's specs, since two
+   compared vehicles can legitimately resolve to different regions (e.g. one has
+   verified Armenia data, the other doesn't yet) — never hidden, per §10.5.
 
 2. **A lightweight client store (Zustand + `persist` → localStorage) tracks "vehicles
    currently queued for comparison"** so an "Add to Comparison" button on a manufacturer,

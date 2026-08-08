@@ -47,6 +47,7 @@ lav-auto/
 │  │  ├─ VehicleIdentity.tsx        # name/image/summary block, shared by vehicle page & compare
 │  │  ├─ SpecTable.tsx              # renders one spec category, given translated labels
 │  │  ├─ SpecCategoryGroup.tsx
+│  │  ├─ SpecDataSourceNotice.tsx   # mandatory "which spec region did this come from" label — ARCHITECTURE.md §10.5
 │  │  └─ AddToCompareButton.tsx
 │  ├─ selectors/
 │  │  ├─ MakeSelect.tsx

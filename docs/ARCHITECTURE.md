@@ -182,16 +182,18 @@ Decisions, and why:
   page content can and should note when a year is "carried over unchanged" rather than
   hide that the two pages are near-duplicates from the user.
 - **Spec region is not a path segment in V1.** Unlike model year, the regulatory spec
-  region (US-spec vs EU-spec, etc.) is not part of the brief's V1 UI scope and most
-  users never need to think about it. It is modeled as a query parameter
-  (`?spec=EU`) reserved for a later phase, defaulting to the single region a given
-  configuration's data represents (see `GLOBAL` spec region row, `DATABASE_SCHEMA.md`
-  §6). Because `vehicle_configurations` already separates spec region as a real column
-  (§10), turning this on later is additive — no data model change, just a new route
-  parameter and a spec-region switcher component. **This is a different concept from
-  the Armenia-first country/commercial-market work in §11** — a spec region describes
-  regulatory figures, not where a car is sold or what it costs; don't conflate the two
-  when this ships.
+  region (US-spec, EU-spec, AM, etc.) is not part of the brief's V1 UI scope and most
+  users never need to think about it. The page instead resolves its configuration via
+  the default resolution algorithm in §10.5 — prefer a verified spec region matching
+  the user's market context (Armenia by default), else fall back to `GLOBAL` — and
+  always displays which region the shown specs actually came from. `?spec=EU`
+  (explicit override) is reserved for a later phase; because `vehicle_configurations`
+  already separates spec region as a real column (§10) and §10.5's algorithm already
+  accepts an optional override, turning that on later is additive — no data model
+  change, just a new route parameter read by the same resolution function. **This is a
+  different concept from the Armenia-first country/commercial-market work in §11** — a
+  spec region describes regulatory figures, not where a car is sold or what it costs;
+  don't conflate the two when either ships further.
 
 ## 8. Future Platform Evolution
 
@@ -393,6 +395,79 @@ dependency anywhere in the schema. It's included here, worked through in detail,
 the brief specifically asked to avoid redesigning vehicle identity after
 user-generated content exists on top of it, and the only way to be confident about that
 is to prove the reference pattern out before it's needed.
+
+### 10.5 User market context vs. the catalog's GLOBAL spec region — default resolution for V1
+
+This is a real V1 behavior (unlike §11, which is documented but not built) — it governs
+what a Vehicle page actually shows today, so it's specified precisely here rather than
+left as a future concern.
+
+**Two different things, easy to conflate, that must stay distinct:**
+
+- **The catalog's `spec_regions`** (`DATABASE_SCHEMA.md` §6) — `GLOBAL`, `US`, `EU`, and
+  so on — is a technical/regulatory dimension of `vehicle_configurations`. `AM` is a
+  *legitimate value in this table too*: not a business/country flag, but a spec region
+  used whenever Lav Auto has entered and verified specifications that specifically
+  represent what's typically found in the Armenian market (which may differ from a
+  generic US- or EU-spec entry — different equipment, different figures). Adding an
+  `AM` spec region costs nothing structurally; it's a seeded row, not a schema change.
+- **The application's user market context** — for V1, a constant, not a stored
+  preference: the `countries` row with `is_primary = true` (Armenia, §11.3). There is no
+  market switcher UI in V1 and nothing is written to a cookie or session for it; it's
+  read once, server-side, as the default input to the resolution algorithm below.
+
+**Default resolution algorithm**, used whenever a Vehicle page, comparison entry, or
+variant-overview "current configuration" is resolved *without* an explicit spec-region
+override (which V1 never exposes in the UI, but the algorithm is written to accept one,
+so turning on an override later — e.g. a diaspora user asking for US-spec figures — is
+additive):
+
+```
+resolveConfiguration(variantId, modelYear, requestedSpecRegionCode?):
+  preferredCode = requestedSpecRegionCode ?? userMarketContext.code   // 'AM' by default in V1
+  1. Look for a vehicle_configuration matching
+     (variantId, modelYear, spec_region.code = preferredCode)
+     AND is_verified = true.
+     → if found, return it, labeled with its actual spec_region code.
+  2. Otherwise, fall back to
+     (variantId, modelYear, spec_region.code = 'GLOBAL').
+     → if found, return it (regardless of is_verified — GLOBAL is the documented
+       reference fallback, not a claim about Armenia), labeled 'GLOBAL'.
+  3. Otherwise, no configuration exists for that (variant, year) at all → 404 /
+     not-found, same as today.
+```
+
+Verification is required for step 1 but not step 2 deliberately: an *unverified* `AM`
+row is exactly the kind of not-yet-trustworthy entry that should never outrank a
+verified `GLOBAL` fallback just because its region code matches the user's market —
+that would be a subtler version of the "silently relabel GLOBAL as Armenian" mistake
+this clarification exists to prevent. An unverified `AM` row simply isn't preferred over
+`GLOBAL` yet; it becomes preferred once verified.
+
+**The resolved spec region is always surfaced, never hidden.** Whatever
+`resolveConfiguration` returns carries its own `spec_region.code`, and the Vehicle page
+renders a translated, visible notice next to the specification table — e.g. "Armenia
+specifications" when `AM` was verified-and-matched, or "Global reference specifications
+— Armenia-specific data not yet available" when it fell back to `GLOBAL`. This is not
+optional styling; it is the mechanism that satisfies "never silently relabel GLOBAL,
+US, EU, or other market specifications as Armenian specifications." No component is
+permitted to render a spec table without also rendering which region it resolved to.
+
+**No spec region in the public URL in V1.** `/cars/bmw/3-series/g20/m340i-xdrive/2025`
+resolves through the algorithm above with no query parameter needed, consistent with
+§7.1's existing decision to keep spec region out of the URL until there's a concrete
+UI need for switching it (the reserved `?spec=` param design in §7.1 already covers
+that case — it isn't reopened here, just confirmed: this resolution logic is what
+`?spec=` would override once it exists).
+
+**This does not merge `spec_regions` and `countries`.** They remain separate tables for
+the reasons in §11.2 — `spec_regions.code = 'AM'` and `countries.code = 'AM'` are two
+different rows in two different tables that happen to share a code, joined only by this
+one piece of application-level resolution logic (matching the user's market context's
+code against a spec region's code), never by a foreign key. A future country whose code
+doesn't have a corresponding curated spec region (e.g. if Lav Auto expands to a country
+where it never enters region-specific specs) simply always falls through to `GLOBAL` at
+step 2 — the algorithm degrades safely without any special-casing.
 
 ## 11. Market Availability & Pricing Architecture — Armenia-First (documented, not implemented)
 

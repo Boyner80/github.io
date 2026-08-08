@@ -447,7 +447,7 @@ create table drivetrains (
 
 create table spec_regions (
   id    bigint generated always as identity primary key,
-  code  text not null unique,    -- 'US', 'EU', 'UK', 'JP', 'GLOBAL', ...
+  code  text not null unique,    -- 'US', 'EU', 'UK', 'JP', 'GLOBAL', 'AM', ...
   name  text not null
 );
 -- A 'GLOBAL' row is seeded and used as the default spec region for catalog entries
@@ -457,6 +457,15 @@ create table spec_regions (
 -- NOTE: this is the *regulatory/homologation* region (which figures a configuration's
 -- numbers reflect), not a commercial market. See §6.1 for the country/commercial-market
 -- table this is deliberately kept separate from.
+--
+-- 'AM' is a legitimate, real value here — used only once Lav Auto has entered and
+-- verified specifications that specifically represent the Armenian market. It is
+-- unrelated to countries.code = 'AM' beyond sharing two letters: this table's 'AM'
+-- means "verified Armenia-representative technical specs"; the countries table's 'AM'
+-- means "Armenia as a place of business." The two are joined only by the default
+-- resolution algorithm in ARCHITECTURE.md §10.5, never by a foreign key — see that
+-- section for exactly how a Vehicle page decides which one to show, and why an
+-- unverified 'AM' spec_revisions row must never outrank a verified 'GLOBAL' one.
 ```
 
 Lookup table values are translated in the UI via `slug`/`code` as a translation key

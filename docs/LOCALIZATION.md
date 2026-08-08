@@ -76,6 +76,11 @@ These are proper nouns/technical identifiers, exactly as called out in the brief
   (see `DATABASE_SCHEMA.md` §5.4): the `key` column drives
   `t('specs.attribute.' + key)`, so adding an uncommon spec later means one DB row plus
   one translation-key addition per locale, never a translated DB column.
+- The spec **data-source notice** required by `ARCHITECTURE.md` §10.5 (e.g.
+  `specs.dataSource.am` = "Armenia specifications", `specs.dataSource.global` =
+  "Global reference specifications — Armenia-specific data not yet available"),
+  keyed off the resolved `spec_region.code`, same pattern as body type/fuel type
+  above. This label is mandatory on every rendered spec table, not optional copy.
 - Generated vehicle summaries (see `ARCHITECTURE.md` §2 risk #5): an ICU message
   template per locale, interpolated with untranslated identity fields and translated
   enum labels, e.g.:
