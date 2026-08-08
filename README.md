@@ -22,9 +22,14 @@ npm run dev
 The app boots at `/` and redirects to the default locale (`/hy`, Armenian — see
 `docs/LOCALIZATION.md`). `/en` and `/ru` are also available.
 
-`.env.local` needs a Supabase project's URL and anon key at minimum (see
-`.env.local.example`). Until Phase 1's migrations are written and applied, no catalog
-data exists yet — see `docs/IMPLEMENTATION_PLAN.md`.
+`.env.local` needs a real Supabase project's URL, anon key, and service role key (see
+`.env.local.example`). Point it at your own project and apply the schema:
+
+```bash
+npx supabase link --project-ref <your-project-ref>
+npx supabase db push                                  # applies supabase/migrations/
+psql "<your-project-db-url>" -f supabase/seed/dev-seed.sql   # small dev/test fixture
+```
 
 ## Scripts
 
@@ -36,7 +41,9 @@ data exists yet — see `docs/IMPLEMENTATION_PLAN.md`.
 
 ## Project status
 
-Phase 0 (Foundations) of `docs/IMPLEMENTATION_PLAN.md`: app scaffold, TypeScript strict
-mode, Tailwind, and locale routing (`/hy`, `/en`, `/ru`) are wired up. No catalog
-database, data layer, or pages beyond a placeholder home route exist yet — that's
-Phase 1 onward.
+Phases 0–1 of `docs/IMPLEMENTATION_PLAN.md`: app scaffold, TypeScript strict mode,
+Tailwind, locale routing (`/hy`, `/en`, `/ru`), the full catalog schema
+(`supabase/migrations/`), a small hand-entered dev/test seed
+(`supabase/seed/dev-seed.sql`, explicitly not verified — see its header), and the
+`lib/data/*` repository layer are done and verified against a live database. No pages
+read from the database yet beyond a placeholder home route — that's Phase 2.
